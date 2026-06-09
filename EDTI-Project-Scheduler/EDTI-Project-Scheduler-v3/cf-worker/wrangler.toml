@@ -1,0 +1,10 @@
+name = "edti-customer-api"
+main = "worker.js"
+compatibility_date = "2026-06-01"
+
+[vars]
+FEISHU_APP_ID = "cli_aa94b747c5f89bde"
+FEISHU_APP_SECRET = "O63VOd6Iz5ToYWIk9Oflubw7Ocv5n8pl"
+BASE_TOKEN = "BdZCbO3Dpai7zUsffmPc9oJSn5e"
+TABLE_PROJECT = "tbl0eEtQAYoRyOpT"
+TABLE_MILESTONE = "tblPj6f9JLGtVLaH"

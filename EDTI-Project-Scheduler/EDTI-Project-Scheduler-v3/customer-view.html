@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5">
+<meta name="description" content="广州依顿检测技术服务有限公司 — 项目认证进度实时查看，包含里程碑时间轴与完成度追踪。">
+<meta property="og:title" content="项目进度 · 广州依顿检测技术服务有限公司（EDTI）">
+<meta property="og:description" content="查看您的认证项目最新进度，包括整体完成率、里程碑时间轴和认证信息。">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="EDTI 广州依顿检测技术服务有限公司">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="项目进度 · EDTI">
+<meta name="twitter:description" content="查看您的认证项目最新进度。">
+<title>项目进度 · 广州依顿检测技术服务有限公司</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --p:#2563eb;--pd:#1d4ed8;--pl:#eff6ff;
+  --s:#22c55e;--w:#f59e0b;--d:#ef4444;
+  --t:#1e293b;--ts:#64748b;
+  --bg:#f0f4f8;--c:#fff;--b:#e2e8f0;
+  --r:12px;--shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+}
+html{font-size:16px}
+body{
+  font-family:var(--font);background:var(--bg);color:var(--t);
+  min-height:100vh;display:flex;flex-direction:column;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.container{max-width:520px;margin:0 auto;padding:16px;flex:1;width:100%}
+
+/* Brand Header */
+.brand{
+  text-align:center;padding:20px 0 8px;
+  border-bottom:2px solid var(--p);margin-bottom:16px;
+}
+.brand h1{font-size:15px;font-weight:700;color:var(--p);letter-spacing:.5px}
+.brand .sub{font-size:11px;color:var(--ts);margin-top:1px}
+
+/* Card */
+.card{background:var(--c);border-radius:var(--r);box-shadow:var(--shadow);padding:20px;margin-bottom:14px}
+.card-title{font-size:12px;font-weight:600;color:var(--ts);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px}
+
+/* Progress Ring Section */
+.progress-section{text-align:center;padding:24px 0 20px}
+.progress-ring{position:relative;display:inline-block;width:140px;height:140px}
+.progress-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.progress-ring .bg{fill:none;stroke:var(--b);stroke-width:7}
+.progress-ring .fg{fill:none;stroke:var(--p);stroke-width:7;stroke-linecap:round;transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)}
+.progress-ring .center{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;
+}
+.progress-ring .pct{font-size:30px;font-weight:800;color:var(--t);display:block;line-height:1}
+.progress-ring .label{font-size:12px;color:var(--ts);margin-top:2px;display:block}
+.project-info{margin-top:16px}
+.project-info .name{font-size:17px;font-weight:700;color:var(--t);margin-bottom:2px}
+.project-info .client{font-size:13px;color:var(--ts);margin-bottom:8px}
+.project-info .tags{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.project-info .tag{
+  font-size:11px;padding:2px 10px;border-radius:99px;background:var(--pl);color:var(--p);font-weight:500;
+}
+.project-info .dates{font-size:12px;color:var(--ts);margin-top:8px}
+
+/* Status Badge */
+.badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 12px;border-radius:99px;font-size:12px;font-weight:600;
+}
+.badge-in-progress{background:#fef3c7;color:#92400e}
+.badge-completed{background:#dcfce7;color:#166534}
+.badge-delayed{background:#fee2e2;color:#991b1b}
+.badge-pending{background:#f1f5f9;color:#475569}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.dot-in-progress{background:var(--w)}
+.dot-completed{background:var(--s)}
+.dot-delayed{background:var(--d)}
+.dot-pending{background:var(--ts)}
+
+/* Milestone Cards */
+.milestone-card{padding:14px 0;border-bottom:1px solid #f1f5f9}
+.milestone-card:last-child{border-bottom:none;padding-bottom:0}
+.ms-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.ms-name{font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px}
+.ms-name .icon{font-size:10px}
+.ms-name .icon.completed{color:var(--s)}
+.ms-name .icon.in-progress{color:var(--w)}
+.ms-name .icon.delayed{color:var(--d)}
+.ms-name .icon.pending{color:var(--ts)}
+.ms-status{font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px}
+.ms-bar-track{height:5px;background:#f1f5f9;border-radius:99px;overflow:hidden;margin:6px 0}
+.ms-bar-fill{height:100%;border-radius:99px;transition:width 1s ease}
+.ms-bar-fill.completed{background:var(--s)}
+.ms-bar-fill.in-progress{background:var(--p)}
+.ms-bar-fill.pending{background:var(--b)}
+.ms-dates{font-size:11px;color:var(--ts)}
+
+/* Info Grid */
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.info-item{}
+.info-item .lbl{font-size:11px;color:var(--ts);margin-bottom:1px}
+.info-item .val{font-size:13px;font-weight:500;color:var(--t)}
+.info-item.full{grid-column:1/-1}
+.update-time{font-size:11px;color:var(--ts);text-align:center;margin-top:12px}
+
+/* Footer */
+.footer{text-align:center;padding:20px;font-size:11px;color:var(--ts)}
+.footer strong{color:var(--p)}
+
+/* Loading Skeleton */
+.skeleton{background:linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:4px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.loading-state{text-align:center;padding:60px 20px}
+.loading-state .ring{width:48px;height:48px;border:4px solid var(--b);border-top-color:var(--p);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-state p{color:var(--ts);font-size:14px}
+
+/* Error State */
+.error-state{text-align:center;padding:60px 20px}
+.error-state .icon{font-size:48px;margin-bottom:12px}
+.error-state h2{font-size:18px;margin-bottom:6px}
+.error-state p{color:var(--ts);font-size:13px;margin-bottom:16px}
+.error-state .btn{
+  display:inline-block;padding:8px 24px;background:var(--p);color:#fff;
+  border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;
+}
+
+/* Language Toggle */
+.lang-toggle{
+  position:fixed;top:12px;right:12px;z-index:100;
+  background:var(--c);border:1px solid var(--b);border-radius:6px;padding:3px 10px;
+  font-size:12px;font-weight:600;color:var(--ts);cursor:pointer;box-shadow:var(--shadow);
+  transition:all .15s;
+}
+.lang-toggle:hover{color:var(--p);border-color:var(--p)}
+
+/* Hidden */
+.hidden{display:none !important}
+</style>
+</head>
+<body>
+
+<div class="lang-toggle" id="langToggle" onclick="toggleLang()">EN</div>
+
+<div class="container">
+
+  <div class="brand">
+    <h1>广州依顿检测技术服务有限公司</h1>
+    <div class="sub">Guangzhou Eadon Testing Technology Services Co., Ltd.</div>
+  </div>
+
+  <!-- Loading -->
+  <div id="loadingState" class="loading-state">
+    <div class="ring"></div>
+    <p id="loadText">正在加载项目进度...</p>
+  </div>
+
+  <!-- Error -->
+  <div id="errorState" class="error-state hidden">
+    <div class="icon">&#x26A0;</div>
+    <h2 id="errTitle">无法加载</h2>
+    <p id="errMsg">请检查链接是否正确，或联系您的项目负责人。</p>
+    <button class="btn" onclick="location.reload()" id="errBtn">重新加载</button>
+  </div>
+
+  <!-- Content -->
+  <div id="contentState" class="hidden">
+
+    <!-- Progress Ring + Project Info -->
+    <div class="card">
+      <div class="progress-section">
+        <div class="progress-ring">
+          <svg viewBox="0 0 140 140">
+            <circle class="bg" cx="70" cy="70" r="58"/>
+            <circle class="fg" id="progressCircle" cx="70" cy="70" r="58"
+              stroke-dasharray="364.4" stroke-dashoffset="364.4"/>
+          </svg>
+          <div class="center">
+            <span class="pct" id="pctText">0%</span>
+            <span class="label" id="statusLabel" data-zh="" data-en="">-</span>
+          </div>
+        </div>
+        <div class="project-info">
+          <div class="name" id="projName"></div>
+          <div class="client" id="projClient"></div>
+          <div class="tags" id="projTags"></div>
+          <div class="dates" id="projDates"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Milestones -->
+    <div class="card">
+      <div class="card-title" id="msTitle" data-zh="项目里程碑" data-en="Milestones">项目里程碑</div>
+      <div id="milestoneList"></div>
+    </div>
+
+    <!-- Cert Info -->
+    <div class="card">
+      <div class="card-title" id="infoTitle" data-zh="认证信息" data-en="Certification Info">认证信息</div>
+      <div class="info-grid" id="infoGrid"></div>
+      <div class="update-time" id="updateTime"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<div class="footer">
+  Powered by <strong>广州依顿检测技术服务有限公司（EDTI）</strong>
+</div>
+
+<script>
+// ==================== CONFIG ====================
+// ★ 部署火山引擎函数后，将下面 URL 替换为你的函数触发器地址
+//    目前保留旧 Worker URL 防止空值报错，部署后替换即可
+//    URL 参数 ?api=... 可覆盖此默认值
+const CONFIG = {
+  apiBase: 'https://edti-cuomer-api-qnbjxghzqp.cn-hangzhou.fcapp.run',
+};
+// ================================================
+
+const LANG = {
+  zh: {
+    loading: '正在加载项目进度...',
+    errorTitle: '无法加载',
+    errorMsg: '请检查链接是否正确，或联系您的项目负责人。',
+    errorBtn: '重新加载',
+    msTitle: '项目里程碑',
+    infoTitle: '认证信息',
+    infoCertBody: '发证机构',
+    infoStandard: '认证标准',
+    infoProduct: '产品型号',
+    infoClient: '客户名称',
+    infoNotes: '备注',
+    updated: '更新时间',
+    status_in_progress: '进行中',
+    status_completed: '已完成',
+    status_delayed: '已延期',
+    status_pending: '待启动',
+    notFound: '未找到对应项目',
+    notFoundMsg: '请确认分享链接中的项目编号是否正确。',
+    networkError: '网络请求失败',
+    networkErrorMsg: '请检查网络连接后重试。',
+  },
+  en: {
+    loading: 'Loading project progress...',
+    errorTitle: 'Failed to Load',
+    errorMsg: 'Please check your link or contact your project manager.',
+    errorBtn: 'Retry',
+    msTitle: 'Milestones',
+    infoTitle: 'Certification Info',
+    infoCertBody: 'Certification Body',
+    infoStandard: 'Standard',
+    infoProduct: 'Product Model',
+    infoClient: 'Client',
+    infoNotes: 'Notes',
+    updated: 'Last Updated',
+    status_in_progress: 'In Progress',
+    status_completed: 'Completed',
+    status_delayed: 'Delayed',
+    status_pending: 'Pending',
+    notFound: 'Project Not Found',
+    notFoundMsg: 'Please verify the share token in your link.',
+    networkError: 'Network Error',
+    networkErrorMsg: 'Please check your connection and try again.',
+  },
+};
+
+let lang = 'zh';
+let projectData = null;
+
+function detectLang() {
+  const urlLang = new URLSearchParams(window.location.search).get('lang');
+  if (urlLang === 'en') return 'en';
+  if (urlLang === 'zh') return 'zh';
+  const nav = (navigator.language || navigator.browserLanguage || '').toLowerCase();
+  return nav.startsWith('en') ? 'en' : 'zh';
+}
+
+function t(key) {
+  return LANG[lang]?.[key] || LANG.zh[key] || key;
+}
+
+function toggleLang() {
+  lang = lang === 'zh' ? 'en' : 'zh';
+  document.getElementById('langToggle').textContent = lang === 'zh' ? 'EN' : '中文';
+  renderUI();
+  if (projectData) renderContent(projectData);
+}
+
+function show(id) {
+  ['loadingState','errorState','contentState'].forEach(i => {
+    document.getElementById(i).classList.toggle('hidden', i !== id);
+  });
+}
+
+function showError(title, msg) {
+  document.getElementById('errTitle').textContent = title;
+  document.getElementById('errMsg').textContent = msg;
+  document.getElementById('errBtn').textContent = t('errorBtn');
+  show('errorState');
+}
+
+function fmtDate(v) {
+  if (!v) return '-';
+  return v;
+}
+
+function statusIcon(s) {
+  const map = { 'in-progress': '&#x1F535;', completed: '&#x1F7E2;', delayed: '&#x1F534;', pending: '&#x26AA;' };
+  return map[s] || map.pending;
+}
+
+function renderContent(data) {
+  const p = data.project;
+  const ms = data.milestones || [];
+
+  // Progress ring
+  const prog = p.progress || 0;
+  const circ = document.getElementById('progressCircle');
+  const r = 58;
+  const dash = 2 * Math.PI * r;
+  const offset = dash * (1 - Math.min(prog, 100) / 100);
+  circ.style.strokeDasharray = dash;
+  circ.style.strokeDashoffset = offset;
+  document.getElementById('pctText').textContent = Math.round(prog) + '%';
+
+  // Status label
+  const sl = document.getElementById('statusLabel');
+  sl.textContent = t('status_' + p.status);
+  sl.className = 'label badge badge-' + p.status;
+
+  // Project name
+  document.getElementById('projName').textContent = p.projectName;
+
+  // Client
+  const clientName = lang === 'zh' ? (p.clientCN || p.clientEN) : (p.clientEN || p.clientCN);
+  document.getElementById('projClient').textContent = clientName || '';
+
+  // Tags
+  const tagsEl = document.getElementById('projTags');
+  tagsEl.innerHTML = '';
+  if (p.standard) {
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.textContent = p.standard;
+    tagsEl.appendChild(tag);
+  }
+  if (p.certBody) {
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.textContent = p.certBody;
+    tagsEl.appendChild(tag);
+  }
+
+  // Dates
+  document.getElementById('projDates').textContent =
+    (p.startDate || 'TBD') + ' → ' + (p.targetEndDate || 'TBD');
+
+  // Milestones
+  const msList = document.getElementById('milestoneList');
+  msList.innerHTML = '';
+  ms.forEach((m, i) => {
+    const s = m.status || 'pending';
+    const progM = m.progress || 0;
+    const name = lang === 'zh' ? (m.nameCN || m.nameEN) : (m.nameEN || m.nameCN);
+    const div = document.createElement('div');
+    div.className = 'milestone-card';
+    div.innerHTML =
+      '<div class="ms-header">' +
+        '<div class="ms-name">' +
+          '<span class="icon ' + s + '">' + statusIcon(s) + '</span>' +
+          (name || '-') +
+        '</div>' +
+        '<span class="ms-status badge badge-' + s + '">' +
+          '<span class="dot dot-' + s + '"></span> ' +
+          t('status_' + s) + ' ' + Math.round(progM) + '%' +
+        '</span>' +
+      '</div>' +
+      '<div class="ms-bar-track"><div class="ms-bar-fill ' + s + '" style="width:' + progM + '%"></div></div>' +
+      '<div class="ms-dates">' + fmtDate(m.plannedStart) + ' → ' + fmtDate(m.plannedEnd) + '</div>';
+    msList.appendChild(div);
+  });
+  if (ms.length === 0) {
+    msList.innerHTML = '<div style="text-align:center;padding:16px;color:var(--ts);font-size:13px">' +
+      (lang === 'zh' ? '暂无里程碑数据' : 'No milestones yet') + '</div>';
+  }
+
+  // Info grid
+  const infoGrid = document.getElementById('infoGrid');
+  infoGrid.innerHTML = '';
+  const infoItems = [
+    { key: 'infoCertBody', val: p.certBody, full: false },
+    { key: 'infoStandard', val: p.standard, full: false },
+    { key: 'infoProduct', val: p.productModel, full: false },
+    { key: 'infoClient', val: clientName, full: true },
+  ];
+  if (p.notes) {
+    infoItems.push({ key: 'infoNotes', val: p.notes, full: true });
+  }
+  infoItems.forEach(item => {
+    if (!item.val) return;
+    const d = document.createElement('div');
+    d.className = 'info-item' + (item.full ? ' full' : '');
+    d.innerHTML = '<div class="lbl">' + t(item.key) + '</div><div class="val">' + item.val + '</div>';
+    infoGrid.appendChild(d);
+  });
+
+  // Update time
+  const now = new Date();
+  document.getElementById('updateTime').textContent =
+    t('updated') + ': ' + now.getFullYear() + '-' +
+    String(now.getMonth() + 1).padStart(2, '0') + '-' +
+    String(now.getDate()).padStart(2, '0');
+
+  show('contentState');
+}
+
+async function loadData() {
+  const params = new URLSearchParams(window.location.search);
+  const shareToken = params.get('share');
+  if (!shareToken) {
+    showError(
+      lang === 'zh' ? '缺少参数' : 'Missing Parameter',
+      lang === 'zh' ? '分享链接中缺少项目标识，请联系您的项目负责人。' : 'Missing share token in URL. Please contact your project manager.'
+    );
+    return;
+  }
+
+  const apiBase = params.get('api') || CONFIG.apiBase;
+  const url = apiBase.replace(/\/+$/, '') + '/api/customer/' + encodeURIComponent(shareToken);
+
+  try {
+    const resp = await fetch(url);
+    if (resp.status === 404) {
+      showError(t('notFound'), t('notFoundMsg'));
+      return;
+    }
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      showError(t('errorTitle'), errData.error || t('errorMsg'));
+      return;
+    }
+    const data = await resp.json();
+    if (!data || !data.project) {
+      showError(t('notFound'), t('notFoundMsg'));
+      return;
+    }
+    projectData = data;
+    renderContent(data);
+  } catch (e) {
+    showError(t('networkError'), t('networkErrorMsg'));
+  }
+}
+
+function renderUI() {
+  // Update static text labels
+  document.getElementById('loadText').textContent = t('loading');
+  document.getElementById('msTitle').textContent = t('msTitle');
+  document.getElementById('infoTitle').textContent = t('infoTitle');
+}
+
+// Init
+lang = detectLang();
+document.getElementById('langToggle').textContent = lang === 'zh' ? 'EN' : '中文';
+renderUI();
+show('loadingState');
+loadData();
+</script>
+</body>
+</html>

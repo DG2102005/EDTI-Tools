@@ -1,0 +1,14 @@
+{
+  "name": "edti-project-scheduler",
+  "version": "1.0.0",
+  "description": "EDTI 项目排期表系统 — 客户可视化排期工具",
+  "main": "api-server.js",
+  "scripts": {
+    "start": "node api-server.js",
+    "start:dev": "node --watch api-server.js",
+    "setup:base": "powershell ./scripts/setup-base.ps1",
+    "deploy": "powershell ./scripts/deploy-app.ps1"
+  },
+  "keywords": ["edti", "project-scheduler", "gantt", "certification"],
+  "license": "MIT"
+}
