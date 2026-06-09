@@ -1,0 +1,2301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EDTI 项目排期系统</title>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<style>
+:root {
+  --primary: #1a56db; --primary-light: #e8effd; --primary-dark: #0f3b8c;
+  --green: #0d9488; --green-bg: #edfdfa; --yellow: #d97706; --yellow-bg: #fff9ed;
+  --red: #dc2626; --red-bg: #fef2f2; --gray: #6b7280; --gray-bg: #f9fafb;
+  --border: #e5e7eb; --text: #111827; --text-secondary: #6b7280;
+  --accent: #3b82f6;
+  --bg: #f3f4f6;
+  --card-bg: #ffffff;
+  --card-border: transparent;
+  --header-gradient: linear-gradient(135deg, #1a56db 0%, #0f3b8c 100%);
+  --header-text: #ffffff;
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', sans-serif;
+  --border-radius-sm: 6px;
+  --border-radius-md: 10px;
+  --border-radius-lg: 12px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.07);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+  --shadow-lg: 0 20px 60px rgba(0,0,0,0.15);
+  --table-hover: #f8faff;
+  --bar-gradient: linear-gradient(90deg, var(--primary), #3b82f6);
+  --tag-bg: var(--gray-bg);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: var(--font-family);
+  background: var(--bg); color: var(--text); line-height: 1.5;
+  transition: background 0.3s, color 0.3s;
+}
+@media print { body { background: #fff; } .no-print { display: none !important; } }
+/* ─── Header ─── */
+.app-header {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: #fff; padding: 14px 28px; display: flex; justify-content: space-between;
+  align-items: center; flex-wrap: wrap; gap: 10px;
+}
+.app-header .brand { display: flex; align-items: center; gap: 10px; }
+.app-header .brand .logo {
+  width: 36px; height: 36px; background: rgba(255,255,255,0.2);
+  border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 16px; letter-spacing: 1px;
+}
+.app-header .brand h1 { font-size: 18px; font-weight: 600; }
+.app-header .brand .sub { font-size: 11px; opacity: 0.75; }
+.header-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.btn {
+  padding: 7px 14px; border: none; border-radius: 6px; cursor: pointer;
+  font-size: 13px; font-weight: 500; transition: all 0.2s;
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+}
+.btn-white { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.25); }
+.btn-white:hover { background: rgba(255,255,255,0.25); }
+.btn-white.active { background: rgba(255,255,255,0.3); border-color: rgba(255,255,255,0.5); }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-dark); }
+.btn-green { background: var(--green); color: #fff; }
+.btn-green:hover { opacity: 0.9; }
+.btn-red { background: var(--red); color: #fff; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-outline:hover { background: var(--gray-bg); }
+/* ─── Container ─── */
+.app-container { max-width: 1200px; margin: 16px auto; padding: 0 20px; }
+/* ─── Loading ─── */
+.loading { text-align: center; padding: 80px 20px; color: var(--text-secondary); }
+.loading .spinner {
+  display: inline-block; width: 40px; height: 40px;
+  border: 3px solid var(--border); border-top-color: var(--primary);
+  border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+/* ─── Project List ─── */
+.list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+.list-header h2 { font-size: 18px; font-weight: 600; }
+.list-header .count { font-size: 13px; color: var(--text-secondary); }
+.project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+.project-card {
+  background: var(--card-bg); border-radius: var(--border-radius-md); box-shadow: var(--shadow-sm);
+  padding: 16px 20px; cursor: pointer; transition: all 0.25s; border: 1px solid var(--card-border);
+}
+.project-card:hover { box-shadow: var(--shadow-md); border-color: var(--primary-light); transform: translateY(-2px); }
+.project-card .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+.project-card .card-title { font-size: 15px; font-weight: 600; color: var(--primary); }
+.project-card .card-client { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.project-card .card-meta { display: flex; gap: 12px; font-size: 12px; color: var(--text-secondary); flex-wrap: wrap; margin-top: 6px; }
+.project-card .card-meta .card-delete { cursor: pointer; color: var(--red); font-weight: bold; font-size: 16px; line-height: 1; opacity: 0.5; transition: opacity 0.2s; margin-left: auto; }
+.project-card .card-meta .card-delete:hover { opacity: 1; }
+.project-card .card-bar { margin-top: 10px; }
+.project-card .card-bar .bar-track { height: 5px; background: var(--gray-bg); border-radius: 3px; overflow: hidden; }
+.project-card .card-bar .bar-fill { height: 100%; border-radius: 3px; background: var(--bar-gradient); transition: width 0.5s; }
+.project-card .card-bar .bar-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+.badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px;
+  border-radius: 12px; font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.badge-in-progress { background: var(--primary-light); color: var(--primary); }
+.badge-completed { background: var(--green-bg); color: var(--green); }
+.badge-delayed { background: var(--red-bg); color: var(--red); }
+.badge-failed { background: #fce4e4; color: #9b2c2c; }
+.badge-pending { background: var(--gray-bg); color: var(--gray); }
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; }
+.dot-in-progress { background: var(--primary); }
+.dot-completed { background: var(--green); }
+.dot-delayed { background: var(--red); }
+.dot-failed { background: #9b2c2c; }
+.ms-filtered { display: none; }
+.draggable-handle { cursor: grab; user-select: none; }
+.draggable-handle:active { cursor: grabbing; }
+tr[draggable="true"] { cursor: default; }
+tr[draggable="true"] td { transition: background 0.15s; }
+tr.drag-over td { background: var(--primary-light) !important; }
+.dot-pending { background: #d1d5db; }
+/* ─── Back bar ─── */
+.back-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+}
+.back-bar .left { display: flex; align-items: center; gap: 10px; }
+.back-btn {
+  background: none; border: none; cursor: pointer; font-size: 14px;
+  color: var(--primary); font-weight: 500; padding: 4px 8px; border-radius: 6px;
+}
+.back-btn:hover { background: var(--primary-light); }
+/* ─── Project Detail ─── */
+.project-detail-card {
+  background: var(--card-bg); border-radius: var(--border-radius-md); box-shadow: var(--shadow-sm);
+  padding: 20px 24px; margin-bottom: 16px;
+}
+.pd-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; }
+.pd-header .pd-title { font-size: 20px; font-weight: 700; }
+.pd-header .pd-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.pd-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--text-secondary); margin: 8px 0 12px; }
+.pd-meta span { white-space: nowrap; }
+.pd-progress { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.pd-progress .bar-track { flex: 1; height: 8px; background: var(--gray-bg); border-radius: 4px; overflow: hidden; min-width: 100px; }
+.pd-progress .bar-fill { height: 100%; border-radius: 4px; background: var(--bar-gradient); }
+.pd-progress .pct { font-size: 16px; font-weight: 700; color: var(--primary); min-width: 40px; text-align: right; }
+/* ─── Tabs ─── */
+.tab-bar { display: flex; gap: 4px; padding: 4px; background: var(--gray-bg); border-radius: 8px; margin-bottom: 16px; }
+.tab-btn { flex: 1; padding: 9px 16px; border: none; background: transparent; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-secondary); transition: all 0.2s; text-align: center; }
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { background: var(--card-bg); color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-weight: 600; }
+.view-container { background: var(--card-bg); border-radius: var(--border-radius-md); box-shadow: var(--shadow-sm); overflow: hidden; }
+.view-content { padding: 20px 24px; }
+.view-hidden { display: none; }
+/* ─── Table ─── */
+.schedule-table { width: 100%; border-collapse: collapse; }
+.schedule-table thead th {
+  background: var(--gray-bg); padding: 10px 12px; text-align: left;
+  font-size: 11px; font-weight: 600; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 0.3px;
+  border-bottom: 2px solid var(--border); white-space: nowrap;
+}
+.schedule-table tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+.schedule-table tbody tr:hover { background: var(--table-hover); }
+.schedule-table .phase-num {
+  display: inline-flex; width: 26px; height: 26px; align-items: center;
+  justify-content: center; border-radius: 50%; background: var(--primary-light);
+  color: var(--primary); font-size: 11px; font-weight: 700;
+}
+.schedule-table input, .schedule-table select {
+  padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px;
+  font-size: 13px; width: 100%; max-width: 140px;
+}
+.schedule-table input:focus, .schedule-table select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-light); }
+.schedule-table .mini-bar { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-secondary); }
+.schedule-table .mini-bar .track { width: 50px; height: 5px; background: var(--gray-bg); border-radius: 3px; overflow: hidden; }
+.schedule-table .mini-bar .fill { height: 100%; border-radius: 3px; }
+.table-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+/* ─── Batch Milestone ─── */
+.batch-section { margin-top: 16px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.batch-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; cursor: pointer; background: var(--gray-bg); font-size: 13px; font-weight: 500; user-select: none; }
+.batch-header:hover { background: #e5e8ea; }
+.batch-arrow { font-size: 10px; color: var(--text-secondary); transition: transform 0.2s; }
+.batch-body { padding: 14px 16px; }
+.batch-divider { border-top: 1px solid var(--border); margin: 10px 0; }
+.batch-textarea { width: 100%; min-height: 100px; border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-size: 13px; font-family: inherit; box-sizing: border-box; resize: vertical; margin-bottom: 8px; }
+.batch-textarea:focus { outline: none; border-color: var(--primary); }
+.template-btns { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+.template-hint { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+.batch-format { font-size: 11px; color: #999; margin-bottom: 6px; }
+/* ─── Modal ─── */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4); z-index: 1000;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.modal-box {
+  background: var(--card-bg); border-radius: var(--border-radius-lg); padding: 24px 28px;
+  max-width: 520px; width: 100%; max-height: 85vh; overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+.modal-box h3 { font-size: 17px; font-weight: 600; margin-bottom: 16px; }
+.form-group { margin-bottom: 12px; }
+.form-group label { display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 4px; }
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 14px; font-family: inherit; transition: border-color 0.2s;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+  outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-light);
+}
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+/* ─── Share link ─── */
+
+/* ─── Dashboard empty ─── */
+.empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
+.empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+.empty-state h3 { font-size: 16px; margin-bottom: 6px; color: var(--text); }
+/* ─── Toast ─── */
+.toast {
+  position: fixed; bottom: 24px; right: 24px; padding: 10px 18px; border-radius: 8px;
+  color: #fff; font-size: 13px; font-weight: 500; z-index: 9999;
+  opacity: 0; transform: translateY(20px); transition: all 0.3s ease;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.success { background: var(--green); }
+.toast.error { background: var(--red); }
+.toast.info { background: var(--primary); }
+.toast.warning { background: #d97706; }
+/* ─── Footer ─── */
+.app-footer { text-align: center; padding: 20px; font-size: 12px; color: var(--text-secondary); }
+.app-footer .powered { margin-top: 3px; font-weight: 500; color: var(--primary); }
+/* ─── Responsive ─── */
+@media (max-width: 768px) {
+  .app-header { padding: 12px 16px; }
+  .app-header .brand h1 { font-size: 15px; }
+  .project-grid { grid-template-columns: 1fr; }
+  .app-container { padding: 0 12px; margin: 10px auto; }
+  .view-content { padding: 14px 16px; }
+  .schedule-table { font-size: 12px; }
+  .schedule-table thead th, .schedule-table tbody td { padding: 8px; }
+  .form-row { grid-template-columns: 1fr; }
+  .modal-box { padding: 18px 20px; }
+}
+/* ══════════════════════════════════════════════════════════
+   THEME: 科技风 — Dark Sci-Fi / Neon Cyber
+   ══════════════════════════════════════════════════════════ */
+body.theme-tech {
+  --primary: #00d4ff; --primary-light: rgba(0,212,255,0.12); --primary-dark: #0066cc;
+  --green: #00e676; --green-bg: rgba(0,230,118,0.1);
+  --yellow: #ffd740; --yellow-bg: rgba(255,215,64,0.1);
+  --red: #ff1744; --red-bg: rgba(255,23,68,0.1);
+  --gray: #8892b0; --gray-bg: rgba(255,255,255,0.04);
+  --border: rgba(255,255,255,0.08); --text: #e0e8ff; --text-secondary: #8892b0;
+  --accent: #00d4ff;
+  --bg: #0a0e1a; --card-bg: rgba(255,255,255,0.04); --card-border: rgba(0,212,255,0.15);
+  --header-gradient: linear-gradient(135deg, #050812 0%, #0d1b3e 50%, #050812 100%);
+  --font-family: 'SF Mono', 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
+  --border-radius-sm: 4px; --border-radius-md: 8px; --border-radius-lg: 12px;
+  --shadow-sm: 0 1px 3px rgba(0,212,255,0.06); --shadow-md: 0 4px 20px rgba(0,212,255,0.1);
+  --shadow-lg: 0 20px 60px rgba(0,0,0,0.5);
+  --table-hover: rgba(0,212,255,0.05);
+  --bar-gradient: linear-gradient(90deg, #00d4ff, #0066cc);
+  --tag-bg: rgba(0,212,255,0.1);
+}
+body.theme-tech .app-header { background: var(--header-gradient); border-bottom: 1px solid rgba(0,212,255,0.2); }
+body.theme-tech .brand .logo { background: rgba(0,212,255,0.2); box-shadow: 0 0 20px rgba(0,212,255,0.2); }
+body.theme-tech .project-card:hover { border-color: rgba(0,212,255,0.3); box-shadow: 0 0 30px rgba(0,212,255,0.08); }
+body.theme-tech .btn-white { background: rgba(0,212,255,0.1); border-color: rgba(0,212,255,0.2); }
+body.theme-tech .btn-white:hover { background: rgba(0,212,255,0.2); }
+body.theme-tech .btn-primary { background: linear-gradient(135deg, #00d4ff, #0066cc); }
+body.theme-tech .btn-outline { border-color: rgba(0,212,255,0.3); color: #00d4ff; }
+body.theme-tech .btn-outline:hover { background: rgba(0,212,255,0.1); }
+body.theme-tech .schedule-table thead th { background: rgba(0,212,255,0.08); }
+body.theme-tech .schedule-table .phase-num { background: rgba(0,212,255,0.15); color: #00d4ff; }
+body.theme-tech .batch-header { background: rgba(0,212,255,0.06); }
+body.theme-tech .project-card .card-title { color: #00d4ff; }
+body.theme-tech .pd-progress .pct { color: #00d4ff; }
+body.theme-tech .tab-btn.active { background: rgba(0,212,255,0.12); box-shadow: 0 0 20px rgba(0,212,255,0.1); }
+body.theme-tech .toast.info { background: linear-gradient(135deg, #00d4ff, #0066cc); }
+/* ─── Tech theme grid background ─── */
+body.theme-tech .app-footer .powered { color: #00d4ff; }
+
+/* ══════════════════════════════════════════════════════════
+   THEME: 时尚大片风 — Luxury / Editorial / Vogue Style
+   ══════════════════════════════════════════════════════════ */
+body.theme-fashion {
+  --primary: #1a1a1a; --primary-light: #f5f0eb; --primary-dark: #000000;
+  --green: #2d6a4f; --green-bg: #edf5f0;
+  --yellow: #b8860b; --yellow-bg: #fdf8ed;
+  --red: #c41e3a; --red-bg: #fef0f2;
+  --gray: #888888; --gray-bg: #f8f6f4;
+  --border: #e0d8d0; --text: #1a1a1a; --text-secondary: #888888;
+  --accent: #c9a96e;
+  --bg: #faf8f6; --card-bg: #ffffff; --card-border: #e8e2da;
+  --header-gradient: linear-gradient(135deg, #1a1a1a 0%, #333333 100%);
+  --font-family: 'Playfair Display', 'Noto Serif SC', 'Georgia', 'Times New Roman', serif;
+  --border-radius-sm: 0px; --border-radius-md: 0px; --border-radius-lg: 0px;
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.04); --shadow-md: 0 4px 24px rgba(0,0,0,0.08);
+  --shadow-lg: 0 24px 64px rgba(0,0,0,0.12);
+  --table-hover: #f8f6f4;
+  --bar-gradient: linear-gradient(90deg, #1a1a1a, #555555);
+  --tag-bg: #f5f0eb;
+}
+body.theme-fashion .app-header { background: var(--header-gradient); letter-spacing: 2px; }
+body.theme-fashion .app-header .brand h1 { font-weight: 300; letter-spacing: 4px; text-transform: uppercase; }
+body.theme-fashion .brand .logo { background: rgba(255,255,255,0.1); border-radius: 0; }
+body.theme-fashion .project-card { border: 1px solid #e8e2da; }
+body.theme-fashion .project-card:hover { border-color: #c9a96e; transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
+body.theme-fashion .project-card .card-title { color: #1a1a1a; font-weight: 400; letter-spacing: 1px; }
+body.theme-fashion .btn-white { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); }
+body.theme-fashion .btn-primary { background: #1a1a1a; border-radius: 0; }
+body.theme-fashion .btn-primary:hover { background: #333; }
+body.theme-fashion .btn-outline { border-color: #d0c8c0; border-radius: 0; }
+body.theme-fashion .schedule-table thead th { border-bottom: 3px solid #1a1a1a; text-transform: uppercase; letter-spacing: 2px; }
+body.theme-fashion .schedule-table .phase-num { background: #1a1a1a; color: #fff; border-radius: 0; }
+body.theme-fashion .tab-bar { background: transparent; border-bottom: 1px solid #e0d8d0; border-radius: 0; }
+body.theme-fashion .tab-btn { border-radius: 0; color: #888; }
+body.theme-fashion .tab-btn.active { background: transparent; color: #1a1a1a; box-shadow: none; border-bottom: 2px solid #1a1a1a; }
+body.theme-fashion .badge { border-radius: 0; }
+body.theme-fashion .batch-section { border-radius: 0; }
+body.theme-fashion .toast { border-radius: 0; }
+body.theme-fashion .project-detail-card { border: 1px solid #e8e2da; }
+body.theme-fashion .view-container { border: 1px solid #e8e2da; }
+body.theme-fashion .pd-progress .pct { color: #1a1a1a; }
+body.theme-fashion .app-footer .powered { color: #c9a96e; }
+
+/* ══════════════════════════════════════════════════════════
+   THEME: 小清新风 — Pastel / Soft / Airy
+   ══════════════════════════════════════════════════════════ */
+body.theme-fresh {
+  --primary: #7c9a8e; --primary-light: #e8f0ed; --primary-dark: #5a7a6e;
+  --green: #6ba89a; --green-bg: #edf8f5;
+  --yellow: #d4a96a; --yellow-bg: #fdf8ed;
+  --red: #d4878a; --red-bg: #fef0f1;
+  --gray: #8a9e97; --gray-bg: #f5f8f7;
+  --border: #dce8e3; --text: #2d3e3a; --text-secondary: #8a9e97;
+  --accent: #d4a5a5;
+  --bg: #f2f6f4; --card-bg: #ffffff; --card-border: #dce8e3;
+  --header-gradient: linear-gradient(135deg, #7c9a8e 0%, #b5cdc3 100%);
+  --font-family: 'Noto Sans SC', 'Segoe UI', 'Helvetica Neue', sans-serif;
+  --border-radius-sm: 8px; --border-radius-md: 16px; --border-radius-lg: 20px;
+  --shadow-sm: 0 2px 8px rgba(124,154,142,0.08); --shadow-md: 0 4px 16px rgba(124,154,142,0.12);
+  --shadow-lg: 0 20px 50px rgba(124,154,142,0.15);
+  --table-hover: #f5faf8;
+  --bar-gradient: linear-gradient(90deg, #7c9a8e, #b5cdc3);
+  --tag-bg: #f0f6f3;
+}
+body.theme-fresh .app-header { background: var(--header-gradient); }
+body.theme-fresh .brand .logo { background: rgba(255,255,255,0.25); border-radius: 12px; }
+body.theme-fresh .project-card { border: 1px solid #dce8e3; border-radius: 16px; }
+body.theme-fresh .project-card:hover { border-color: #b5cdc3; box-shadow: 0 8px 24px rgba(124,154,142,0.15); }
+body.theme-fresh .project-card .card-title { color: #5a7a6e; }
+body.theme-fresh .btn-white { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.3); }
+body.theme-fresh .btn-primary { background: linear-gradient(135deg, #7c9a8e, #b5cdc3); color: #fff; border-radius: 10px; }
+body.theme-fresh .btn-outline { border-color: #d4e0db; border-radius: 10px; }
+body.theme-fresh .btn-outline:hover { background: #f0f6f3; }
+body.theme-fresh .schedule-table thead th { background: #f0f6f3; color: #5a7a6e; letter-spacing: 0.5px; }
+body.theme-fresh .schedule-table .phase-num { background: #e8f0ed; color: #5a7a6e; }
+body.theme-fresh .batch-header { background: #f0f6f3; border-radius: 12px; }
+body.theme-fresh .tab-bar { background: #f0f6f3; border-radius: 12px; padding: 4px; }
+body.theme-fresh .tab-btn.active { background: #fff; border-radius: 10px; color: #5a7a6e; box-shadow: 0 2px 8px rgba(124,154,142,0.1); }
+body.theme-fresh .project-detail-card { border: 1px solid #dce8e3; border-radius: 16px; }
+body.theme-fresh .view-container { border: 1px solid #dce8e3; border-radius: 16px; }
+body.theme-fresh .toast { border-radius: 12px; }
+body.theme-fresh .app-footer .powered { color: #7c9a8e; }
+body.theme-fresh .pd-progress .pct { color: #5a7a6e; }
+body.theme-fresh .batch-section { border-radius: 12px; }
+.list-toolbar { display: flex; gap: 8px; margin: 12px 0; align-items: center; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 12px; }
+.cal-header { text-align: center; font-weight: 600; font-size: 12px; padding: 8px 4px; color: var(--text-secondary); background: var(--bg-secondary); border-radius: 6px 6px 0 0; }
+.cal-day { min-height: 85px; border: 2px solid var(--border); border-radius: 4px; padding: 3px 4px; font-size: 11px; background: var(--card-bg); cursor: default; }
+.cal-day .day-num { font-weight: 700; font-size: 13px; margin-bottom: 3px; color: var(--text); }
+.cal-day.today { border-color: var(--primary); border-width: 2px; background: var(--primary-light); }
+.cal-day.other-month { opacity: 0.3; }
+.cal-item { padding: 2px 4px; margin: 2px 0; border-radius: 4px; font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; color: #fff; letter-spacing: 0.3px; }
+.cal-item:hover { opacity: 0.85; }
+.cal-item.status-completed { background: var(--green); }
+.cal-item.status-in-progress { background: var(--primary); }
+.cal-item.status-delayed { background: var(--red); }
+.cal-item.status-pending { background: var(--gray); }
+.cal-item.status-failed { background: #9b2c2c; }
+
+/* ══════════════════════════════════════════════════════════
+   TIMELINE VIEW — Vertical Milestone Timeline
+   ══════════════════════════════════════════════════════════ */
+.tl-container { padding: 16px 8px 16px 24px; max-width: 700px; margin: 0 auto; }
+.tl-item { position: relative; padding-left: 32px; padding-bottom: 20px; }
+.tl-last { padding-bottom: 0; }
+.tl-dot { position: absolute; left: 0; top: 4px; width: 14px; height: 14px; border-radius: 50%; border: 3px solid; background: #fff; z-index: 1; }
+.tl-dot-completed { border-color: var(--green); }
+.tl-dot-in-progress { border-color: var(--primary); }
+.tl-dot-delayed { border-color: var(--red); animation: tl-pulse 1.5s ease-in-out infinite; }
+.tl-dot-pending { border-color: var(--gray); }
+.tl-dot-failed { border-color: #9b2c2c; }
+@keyframes tl-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.4); } 50% { box-shadow: 0 0 0 6px rgba(220,38,38,0); } }
+.tl-line { position: absolute; left: 6px; top: 18px; bottom: 0; width: 2px; background: #e5e7eb; }
+.tl-last .tl-line { display: none; }
+.tl-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; box-shadow: var(--shadow-sm); transition: box-shadow 0.15s; }
+.tl-card:hover { box-shadow: var(--shadow-md); }
+.tl-card-completed { border-left: 3px solid var(--green); }
+.tl-card-in-progress { border-left: 3px solid var(--primary); }
+.tl-card-delayed { border-left: 3px solid var(--red); }
+.tl-card-pending { border-left: 3px solid var(--gray); }
+.tl-card-failed { border-left: 3px solid #9b2c2c; }
+.tl-name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+.tl-meta { display: flex; gap: 12px; align-items: center; font-size: 12px; color: var(--text-secondary); flex-wrap: wrap; }
+.tl-status { font-weight: 500; padding: 1px 8px; border-radius: 10px; font-size: 11px; }
+.tl-completed { background: var(--green-bg); color: var(--green); }
+.tl-in-progress { background: var(--primary-light); color: var(--primary); }
+.tl-delayed { background: var(--red-bg); color: var(--red); }
+.tl-pending { background: var(--gray-bg); color: var(--gray); }
+.tl-failed { background: #fce4e4; color: #9b2c2c; }
+.tl-note { font-size: 12px; color: var(--text-secondary); margin-top: 4px; padding-top: 4px; border-top: 1px dashed #eee; }
+
+/* ══════════════════════════════════════════════════════════
+   LAYOUT: 紧凑布局 — Compact Header + Milestones First
+   ══════════════════════════════════════════════════════════ */
+.layout-compact .project-detail-card {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 16px;
+}
+.layout-compact .project-detail-card > .pd-header,
+.layout-compact .project-detail-card > .pd-actions { flex: none; }
+.layout-compact .project-detail-card > .pd-header { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.layout-compact .project-detail-card > .pd-header .pd-title { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.layout-compact .project-detail-card > .pd-header .pd-meta { font-size: 11px; white-space: nowrap; }
+.layout-compact .project-detail-card .pd-progress { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 160px; }
+.layout-compact .project-detail-card .pd-progress .bar-track { flex: 1; max-width: 120px; }
+.layout-compact .project-detail-card .pd-progress .pct { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.layout-compact .project-detail-card .pd-progress #pdDates { font-size: 11px; white-space: nowrap; }
+.layout-compact .tab-bar { display: none; }
+.layout-compact #tabTable { display: block !important; }
+.layout-compact #tabTimeline { display: block !important; }
+
+/* ══════════════════════════════════════════════════════════
+   LAYOUT: 聚焦布局 — Sidebar + Timeline
+   ══════════════════════════════════════════════════════════ */
+.layout-focus #viewDetail {
+  display: grid !important;
+  grid-template-columns: 260px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.layout-focus #viewDetail > .back-bar { grid-column: 1 / -1; }
+.layout-focus #viewDetail > .project-detail-card { grid-column: 1; grid-row: 2 / 99; margin: 0; }
+.layout-focus #viewDetail > .tab-bar { display: none; }
+.layout-focus #viewDetail > #tabTable { grid-column: 2; }
+.layout-focus .project-detail-card .pd-progress {
+  flex-direction: column; align-items: stretch; gap: 6px;
+}
+.layout-focus .project-detail-card .pd-progress .pct { align-self: flex-end; }
+.layout-focus .view-container { display: block !important; }
+.layout-focus #tabTable { display: block !important; }
+.layout-focus .view-content { overflow: visible; }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand" style="cursor:pointer" onclick="app.showList()">
+    <div class="logo">ED</div>
+    <div>
+      <h1 data-i18n="app.title">EDTI 项目排期系统</h1>
+      <div class="sub">Guangzhou Eadon Testing Technology Services Co., Ltd.</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <div style="position:relative;display:inline-block;">
+      <button class="btn btn-white" id="themeBtn" onclick="app.toggleThemeMenu(event)" style="display:flex;align-items:center;gap:5px;">
+        <span id="themeIcon">🎨</span>
+        <span id="themeLabel" data-i18n="theme.professional">商务</span>
+        <span style="font-size:9px;opacity:0.7;">▾</span>
+      </button>
+      <div id="themeMenu" style="display:none;position:absolute;top:100%;left:0;background:#fff;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.15);min-width:150px;z-index:999;overflow:hidden;margin-top:4px;">
+        <div onclick="app.setTheme('default')" style="padding:9px 14px;cursor:pointer;font-size:12px;border-bottom:1px solid #f0f0f0;color:#111827;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''"><span>💼</span> <span data-i18n="theme.professional">商务专业</span></div>
+        <div onclick="app.setTheme('tech')" style="padding:9px 14px;cursor:pointer;font-size:12px;border-bottom:1px solid #f0f0f0;color:#111827;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''"><span>🚀</span> <span data-i18n="theme.tech">科技风</span></div>
+        <div onclick="app.setTheme('fashion')" style="padding:9px 14px;cursor:pointer;font-size:12px;border-bottom:1px solid #f0f0f0;color:#111827;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''"><span>✨</span> <span data-i18n="theme.fashion">时尚大片</span></div>
+        <div onclick="app.setTheme('fresh')" style="padding:9px 14px;cursor:pointer;font-size:12px;color:#111827;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''"><span>🌸</span> <span data-i18n="theme.fresh">小清新</span></div>
+      </div>
+    </div>
+    <div style="position:relative;display:inline-block;">
+      <button class="btn btn-white" id="layoutBtn" onclick="app.toggleLayoutMenu(event)" style="display:flex;align-items:center;gap:5px;">
+        <span>📐</span>
+        <span id="layoutLabel" data-i18n="layout.default">标准</span>
+        <span style="font-size:9px;opacity:0.7;">▾</span>
+      </button>
+      <div id="layoutMenu" style="display:none;position:absolute;top:100%;left:0;background:#fff;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.15);min-width:140px;z-index:999;overflow:hidden;margin-top:4px;">
+        <div onclick="app.setLayout('default')" style="padding:9px 14px;cursor:pointer;font-size:12px;border-bottom:1px solid #f0f0f0;color:#111827;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''"><span>📐</span> <span data-i18n="layout.default">标准布局</span></div>
+        <div onclick="app.setLayout('compact')" style="padding:9px 14px;cursor:pointer;font-size:12px;border-bottom:1px solid #f0f0f0;color:#111827;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''"><span>📏</span> <span data-i18n="layout.compact">紧凑布局</span></div>
+        <div onclick="app.setLayout('focus')" style="padding:9px 14px;cursor:pointer;font-size:12px;color:#111827;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''"><span>🎯</span> <span data-i18n="layout.focus">聚焦布局</span></div>
+      </div>
+    </div>
+    <button class="btn btn-white" onclick="app.toggleLang()">
+      <span id="langLabel">EN</span>
+    </button>
+    <button class="btn btn-white" onclick="app.exportBeautifulExcel()" id="exportBtn" style="border-radius:6px 0 0 6px;">
+      <span>📊 <span data-i18n="header.export">精美导出</span></span>
+    </button>
+    <div style="position:relative;display:inline-block">
+      <button class="btn btn-white" onclick="app.toggleExportMenu(event)" style="border-radius:0 6px 6px 0;border-left:none;padding:7px 10px;font-size:10px;">▾</button>
+      <div id="exportMenu" style="display:none;position:absolute;top:100%;right:0;background:#fff;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.15);min-width:170px;z-index:999;overflow:hidden;margin-top:4px;">
+        <div onclick="app.exportBeautifulExcel()" style="padding:10px 16px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f0f0;color:#111827;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''"><span style="font-size:16px">📊</span> <span data-i18n="header.beautyExport">精美 Excel</span></div>
+        <div onclick="app.exportSimpleExcel()" style="padding:10px 16px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f0f0;color:#111827;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''"><span style="font-size:16px">📄</span> <span data-i18n="header.quickExport">快速导出</span></div>
+        <div onclick="app.exportFeishuDoc()" style="padding:10px 16px;cursor:pointer;font-size:13px;color:#111827;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''"><span style="font-size:16px">📋</span> <span data-i18n="header.feishuExport">飞书文档</span></div>
+      </div>
+    </div>
+    <button class="btn btn-white" onclick="app.refresh()">
+      <span data-i18n="header.refresh">刷新</span>
+    </button>
+  </div>
+</header>
+
+<div class="app-container" id="app">
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div data-i18n="app.loading">加载中...</div>
+  </div>
+
+  <!-- Project List View -->
+  <div id="viewList" style="display:none">
+    <div class="list-header">
+      <div>
+        <h2 data-i18n="list.title">项目列表</h2>
+        <span class="count" id="projectCount"></span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-white" onclick="app.showCalendar()" style="display:flex;align-items:center;gap:4px">
+          <span>🗓️</span> <span data-i18n="nav.calendar">月历</span>
+        </button>
+        <button class="btn btn-primary" onclick="app.showNewProjectModal()">+ <span data-i18n="list.newProject">新建项目</span></button>
+      </div>
+    </div>
+    <div class="list-toolbar">
+      <input id="projectSearch" type="text" placeholder="🔍 搜索项目..." oninput="app.renderList()" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--card-bg);color:var(--text)">
+      <select id="projectStatusFilter" onchange="app.renderList()" style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--card-bg);color:var(--text)">
+        <option value="all" data-i18n="filter.all">全部状态</option>
+        <option value="in-progress" data-i18n="status.inProgress">进行中</option>
+        <option value="completed" data-i18n="status.completed">已完成</option>
+        <option value="delayed" data-i18n="status.delayed">已延期</option>
+        <option value="pending" data-i18n="status.pending">待启动</option>
+        <option value="failed" data-i18n="status.failed">测试不合格</option>
+      </select>
+    </div>
+    <div id="projectGrid" class="project-grid"></div>
+  </div>
+
+  <!-- Calendar View -->
+  <div id="viewCalendar" style="display:none">
+    <div class="back-bar">
+      <div class="left">
+        <button class="back-btn" onclick="app.showList()">← <span data-i18n="detail.back">返回</span></button>
+        <span style="font-weight:600;font-size:16px" data-i18n="nav.calendar">项目月历</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-white btn-sm" onclick="app.calPrevMonth()">‹</button>
+        <span id="calTitle" style="font-weight:600;font-size:15px;min-width:160px;text-align:center"></span>
+        <button class="btn btn-white btn-sm" onclick="app.calNextMonth()">›</button>
+        <button class="btn btn-white btn-sm" onclick="app.calToday()" data-i18n="calendar.today">今天</button>
+      </div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+  </div>
+
+  <!-- Project Detail View -->
+  <div id="viewDetail" style="display:none">
+    <div class="back-bar">
+      <div class="left">
+        <button class="back-btn" onclick="app.showList()">← <span data-i18n="detail.back">返回</span></button>
+        <span id="detailTitle" style="font-weight:600;font-size:16px"></span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-white no-print" id="editToggleBtn" style="background:var(--primary-light);color:var(--primary);border-color:var(--primary)" onclick="app.toggleEdit()">
+          <span data-i18n="detail.editToggle">编辑模式</span>
+        </button>
+        <button class="btn btn-red no-print" id="deleteProjectBtn" onclick="app.deleteProject()">
+          <span data-i18n="detail.deleteProject">删除项目</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Project Info Card -->
+    <div class="project-detail-card">
+      <div class="pd-header">
+        <div>
+          <div class="pd-title" id="pdName"></div>
+          <div class="pd-meta" id="pdMeta"></div>
+        </div>
+        <div class="pd-actions">
+          <span class="badge" id="pdBadge"></span>
+        </div>
+      </div>
+      <div class="pd-progress">
+        <span style="font-size:12px;color:var(--text-secondary);white-space:nowrap" data-i18n="project.progress">整体进度</span>
+        <div class="bar-track"><div class="bar-fill" id="pdProgressFill" style="width:0%"></div></div>
+        <span class="pct" id="pdProgressPct">0%</span>
+        <span style="font-size:12px;color:var(--text-secondary)" id="pdDates"></span>
+      </div>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="tab-bar no-print">
+      <button class="tab-btn active" onclick="app.switchTab('table')" data-i18n="tab.table">进度表格</button>
+      <button class="tab-btn" onclick="app.switchTab('timeline')" data-i18n="tab.timeline">时间线</button>
+    </div>
+
+    <!-- Table (milestones first) -->
+    <div class="view-container" id="tabTable">
+      <div class="view-content">
+        <div class="table-controls">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span style="font-size:13px;font-weight:500" data-i18n="table.milestones">项目里程碑</span>
+            <select id="msStatusFilter" onchange="app.filterMilestones()" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--card-bg);color:var(--text);margin-left:8px">
+              <option value="all" data-i18n="filter.all">全部状态</option>
+              <option value="pending" data-i18n="status.pending">待启动</option>
+              <option value="in-progress" data-i18n="status.inProgress">进行中</option>
+              <option value="completed" data-i18n="status.completed">已完成</option>
+              <option value="delayed" data-i18n="status.delayed">已延期</option>
+              <option value="failed" data-i18n="status.failed">测试不合格</option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-sm" id="addMsBtn" onclick="app.showNewMilestoneModal()">+ <span data-i18n="table.addMilestone">添加</span></button>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="schedule-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th data-i18n="table.phase">阶段名称</th>
+                <th data-i18n="table.plannedStart">计划开始</th>
+                <th data-i18n="table.plannedEnd">计划完成</th>
+                <th data-i18n="table.status">状态</th>
+                <th data-i18n="table.note">备注</th>
+                <th class="no-print" id="tableActionsTh" style="display:none" data-i18n="table.action">操作</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Batch Milestone Section -->
+        <div class="batch-section" id="batchSection">
+          <div class="batch-header" onclick="app.toggleBatch()">
+            <span>⚡ <span data-i18n="batch.title">快速添加里程碑</span></span>
+            <span class="batch-arrow" id="batchArrow">▶</span>
+          </div>
+          <div class="batch-body" id="batchBody" style="display:none">
+            <div class="template-hint" data-i18n="batch.templateHint">快速添加标准阶段模板：</div>
+            <div class="template-btns">
+              <button class="btn btn-sm btn-outline" onclick="app.applyTemplate('emark')"><span data-i18n="batch.emark">E-mark 标准 7 阶段</span></button>
+              <button class="btn btn-sm btn-outline" onclick="app.applyTemplate('emc')"><span data-i18n="batch.emc">EMC 标准测试</span></button>
+              <button class="btn btn-sm btn-outline" onclick="app.applyTemplate('ce')"><span data-i18n="batch.ce">CE 认证 5 阶段</span></button>
+            </div>
+            <div class="batch-divider"></div>
+            <div class="template-hint" data-i18n="batch.customHint">或自定义批量添加（每行一个，竖线分隔）：</div>
+            <div class="batch-format" data-i18n="batch.format">格式: 中文名 | English Name | 开始日期 | 结束日期</div>
+            <textarea id="batchTextarea" class="batch-textarea" placeholder="项目启动 | Project Kick-off | 2026-06-01 | 2026-06-05&#10;样品测试 | Sample Testing | 2026-06-06 | 2026-06-30"></textarea>
+            <button class="btn btn-primary btn-sm" onclick="app.batchImport()">📥 <span data-i18n="batch.import">批量导入</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="view-container view-hidden" id="tabTimeline">
+      <div class="view-content">
+        <div id="timelineContainer"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="app-footer no-print">
+  <div data-i18n="footer.disclaimer">EDTI 依顿检测 · 项目排期管理系统</div>
+  <div class="powered">Guangzhou Eadon Testing Technology Services Co., Ltd.</div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<!-- New Project Modal -->
+<div id="newProjectModal" style="display:none">
+  <div class="modal-overlay" onclick="if(event.target===this)app.closeModal('newProjectModal')">
+    <div class="modal-box">
+      <h3 data-i18n="modal.newProject">新建项目</h3>
+      <div class="form-group">
+        <label data-i18n="modal.projectName">项目名称</label>
+        <input id="npName" placeholder="e.g. PTC Heater E-mark Certification">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label data-i18n="modal.clientCN">客户名称（中文）</label>
+          <input id="npClientCN">
+        </div>
+        <div class="form-group">
+          <label data-i18n="modal.clientEN">客户名称（英文）</label>
+          <input id="npClientEN">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label data-i18n="modal.productModel">产品型号</label>
+          <input id="npModel">
+        </div>
+        <div class="form-group">
+          <label data-i18n="modal.standard">认证标准</label>
+          <input id="npStandard" placeholder="e.g. R122">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label data-i18n="modal.certBody">认证机构</label>
+          <input id="npCertBody" placeholder="e.g. E57">
+        </div>
+        <div class="form-group">
+          <label data-i18n="modal.shareToken">项目编号</label>
+          <input id="npToken" placeholder="EDTI-2026-xxx">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label data-i18n="modal.startDate">计划开始</label>
+          <input id="npStart" type="date">
+        </div>
+        <div class="form-group">
+          <label data-i18n="modal.endDate">计划完成</label>
+          <input id="npEnd" type="date">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-outline" onclick="app.closeModal('newProjectModal')" data-i18n="modal.cancel">取消</button>
+        <button class="btn btn-primary" onclick="app.createProject()" data-i18n="modal.create">创建</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- New Milestone Modal -->
+<div id="newMilestoneModal" style="display:none">
+  <div class="modal-overlay" onclick="if(event.target===this)app.closeModal('newMilestoneModal')">
+    <div class="modal-box">
+      <h3 data-i18n="modal.newMilestone">添加里程碑</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label data-i18n="modal.phaseCN">阶段名称（中文）</label>
+          <input id="nmNameCN">
+        </div>
+        <div class="form-group">
+          <label data-i18n="modal.phaseEN">阶段名称（英文）</label>
+          <input id="nmNameEN">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label data-i18n="modal.plannedStart">计划开始</label>
+          <input id="nmStart" type="date">
+        </div>
+        <div class="form-group">
+          <label data-i18n="modal.plannedEnd">计划完成</label>
+          <input id="nmEnd" type="date">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label data-i18n="modal.status">状态</label>
+          <select id="nmStatus">
+            <option value="pending" data-i18n="status.pending">待启动</option>
+            <option value="in-progress" data-i18n="status.inProgress">进行中</option>
+            <option value="completed" data-i18n="status.completed">已完成</option>
+            <option value="delayed" data-i18n="status.delayed">已延期</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label data-i18n="modal.progress">完成率 (%)</label>
+          <input id="nmProgress" type="number" min="0" max="100" value="0">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-outline" onclick="app.closeModal('newMilestoneModal')" data-i18n="modal.cancel">取消</button>
+        <button class="btn btn-primary" onclick="app.createMilestone()" data-i18n="modal.add">添加</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+console.log('EDTI script loaded');
+// ═══════════════════════════════════════════════════════════════════
+// EDTI Project Schedule — Dashboard App
+// ═══════════════════════════════════════════════════════════════════
+
+const app = {
+  lang: 'zh',
+  tab: 'table',
+  milestones: [],
+
+  config: {
+    apiBase: window.location.origin === 'https://flb03yzu7a.aiforce.cloud'
+      ? 'http://localhost:3000'
+      : '',
+    demoMode: false,
+    shareApiBase: 'https://edti-cuomer-api-qnbjxghzqp.cn-hangzhou.fcapp.run',
+    // ★ FC API 地址
+    customerViewUrl: 'https://flb03yzu7a.aiforce.cloud/app/app_4k9rzuf8zt0yt'
+  },
+
+  i18n: {
+    zh: {
+      'app.title': 'EDTI 项目排期系统',
+      'app.loading': '加载中...',
+      'list.title': '项目列表',
+      'list.newProject': '新建项目',
+      'list.delete': '删除',
+      'list.empty': '暂无项目，点击上方按钮创建',
+      'list.emptyHint': '创建第一个项目',
+      'detail.back': '返回',
+      'detail.editToggle': '编辑模式',
+      'detail.editOff': '退出编辑',
+      'detail.deleteProject': '删除项目',
+      'project.progress': '整体进度',
+      'tab.table': '进度表格',
+      'tab.timeline': '时间线',
+      'table.milestones': '项目里程碑',
+      'table.addMilestone': '添加里程碑',
+      'table.phase': '阶段名称',
+      'table.plannedStart': '计划开始',
+      'table.plannedEnd': '计划完成',
+      'table.actualEnd': '实际完成',
+      'table.progress': '完成率',
+      'table.status': '状态',
+      'table.note': '备注',
+      'table.action': '操作',
+      'table.save': '保存',
+      'table.delete': '删除',
+      'table.confirmDelete': '确认删除此里程碑？',
+      'header.export': '精美导出',
+      'header.beautyExport': '精美 Excel',
+      'header.quickExport': '快速导出',
+      'header.feishuExport': '飞书文档',
+      'header.refresh': '刷新',
+      'layout.default': '标准布局',
+      'layout.compact': '紧凑布局',
+      'layout.focus': '聚焦布局',
+      'theme.professional': '商务专业',
+      'theme.tech': '科技风',
+      'theme.fashion': '时尚大片',
+      'theme.fresh': '小清新',
+      'status.completed': '已完成',
+      'status.inProgress': '进行中',
+      'status.delayed': '已延期',
+      'status.pending': '待启动',
+      'status.failed': '测试不合格',
+      'filter.all': '全部状态',
+      'nav.calendar': '项目月历',
+      'calendar.today': '今天',
+      'modal.newProject': '新建项目',
+      'modal.projectName': '项目名称',
+      'modal.clientCN': '客户名称（中文）',
+      'modal.clientEN': '客户名称（英文）',
+      'modal.productModel': '产品型号',
+      'modal.standard': '认证标准',
+      'modal.certBody': '认证机构',
+      'modal.shareToken': '项目编号',
+      'modal.startDate': '计划开始',
+      'modal.endDate': '计划完成',
+      'modal.cancel': '取消',
+      'modal.create': '创建',
+      'modal.newMilestone': '添加里程碑',
+      'modal.phaseCN': '阶段名称（中文）',
+      'modal.phaseEN': '阶段名称（英文）',
+      'modal.plannedStart': '计划开始',
+      'modal.plannedEnd': '计划完成',
+      'modal.status': '状态',
+      'modal.progress': '完成率 (%)',
+      'modal.add': '添加',
+      'footer.disclaimer': 'EDTI 依顿检测 · 项目排期管理系统',
+      'toast.created': '项目创建成功',
+      'toast.updated': '更新成功',
+      'toast.deleted': '项目已删除',
+      'toast.msAdded': '里程碑已添加',
+      'toast.msDeleted': '里程碑已删除',
+      'toast.error': '操作失败',
+      'toast.offline': '无法连接服务器，已从列表移除',
+      'toast.copied': '已复制到剪贴板',
+      'toast.batchAdded': '个里程碑已添加',
+      'toast.batchError': '批量导入失败',
+      'toast.templateReady': '模板已填充到文本框，点击"批量导入"提交',
+      'batch.title': '快速添加里程碑',
+      'batch.templateHint': '快速添加标准阶段模板：',
+      'batch.emark': 'E-mark 标准 7 阶段',
+      'batch.emc': 'EMC 标准测试',
+      'batch.ce': 'CE 认证 5 阶段',
+      'batch.customHint': '或自定义批量添加（每行一个，竖线分隔）：',
+      'batch.format': '格式: 中文名 | English Name | 开始日期 | 结束日期',
+      'batch.import': '批量导入'
+    },
+    en: {
+      'app.title': 'EDTI Project Schedule',
+      'app.loading': 'Loading...',
+      'list.title': 'Projects',
+      'list.newProject': 'New Project',
+      'list.delete': 'Delete',
+      'list.empty': 'No projects yet',
+      'list.emptyHint': 'Create your first project',
+      'detail.back': 'Back',
+      'detail.editToggle': 'Edit Mode',
+      'detail.editOff': 'Exit Edit',
+      'detail.deleteProject': 'Delete Project',
+      'detail.copyShare': 'Share Link',
+      'project.progress': 'Overall Progress',
+      'tab.table': 'Progress Table',
+      'tab.timeline': 'Timeline',
+      'table.milestones': 'Milestones',
+      'table.addMilestone': 'Add Milestone',
+      'table.phase': 'Phase',
+      'table.plannedStart': 'Planned Start',
+      'table.plannedEnd': 'Planned End',
+      'table.actualEnd': 'Actual End',
+      'table.progress': 'Progress',
+      'table.status': 'Status',
+      'table.note': 'Note',
+      'table.action': 'Action',
+      'table.save': 'Save',
+      'table.delete': 'Delete',
+      'table.confirmDelete': 'Delete this milestone?',
+      'header.export': 'Beauty Export',
+      'header.beautyExport': 'Beautiful Excel',
+      'header.quickExport': 'Quick Export',
+      'header.feishuExport': 'Feishu Doc',
+      'header.refresh': 'Refresh',
+      'layout.default': 'Default',
+      'layout.compact': 'Compact',
+      'layout.focus': 'Focus',
+      'theme.professional': 'Professional',
+      'theme.tech': 'Tech',
+      'theme.fashion': 'Fashion',
+      'theme.fresh': 'Fresh',
+      'status.completed': 'Completed',
+      'status.inProgress': 'In Progress',
+      'status.delayed': 'Delayed',
+      'status.pending': 'Pending',
+      'status.failed': 'Failed',
+      'filter.all': 'All Status',
+      'nav.calendar': 'Calendar',
+      'calendar.today': 'Today',
+      'modal.newProject': 'New Project',
+      'modal.projectName': 'Project Name',
+      'modal.clientCN': 'Client (CN)',
+      'modal.clientEN': 'Client (EN)',
+      'modal.productModel': 'Product Model',
+      'modal.standard': 'Standard',
+      'modal.certBody': 'Cert Body',
+      'modal.shareToken': 'Project ID',
+      'modal.startDate': 'Start Date',
+      'modal.endDate': 'End Date',
+      'modal.cancel': 'Cancel',
+      'modal.create': 'Create',
+      'modal.newMilestone': 'Add Milestone',
+      'modal.phaseCN': 'Phase Name (CN)',
+      'modal.phaseEN': 'Phase Name (EN)',
+      'modal.plannedStart': 'Planned Start',
+      'modal.plannedEnd': 'Planned End',
+      'modal.status': 'Status',
+      'modal.progress': 'Progress (%)',
+      'modal.add': 'Add',
+      'footer.disclaimer': 'EDTI · Guangzhou Eadon Testing Technology Services Co., Ltd.',
+      'toast.created': 'Project created',
+      'toast.updated': 'Updated',
+      'toast.deleted': 'Project deleted',
+      'toast.msAdded': 'Milestone added',
+      'toast.msDeleted': 'Milestone deleted',
+      'toast.error': 'Operation failed',
+      'toast.offline': 'Cannot reach server, removed from list',
+      'toast.copied': 'Copied to clipboard',
+      'toast.batchAdded': 'milestones added',
+      'toast.batchError': 'Batch import failed',
+      'toast.templateReady': 'Template filled in textarea, click "Import" to submit',
+      'batch.title': 'Quick Add Milestones',
+      'batch.templateHint': 'Quick-add standard phase template:',
+      'batch.emark': 'E-mark Standard 7 Phases',
+      'batch.emc': 'EMC Standard Test',
+      'batch.ce': 'CE Certification 5 Phases',
+      'batch.customHint': 'Or custom batch import (one per line, pipe-separated):',
+      'batch.format': 'Format: Phase Name CN | English Name | Start Date | End Date',
+      'batch.import': 'Batch Import'
+    }
+  },
+
+  // ─── Utilities ────────────────────────────────────
+  t(key) {
+    const m = this.i18n[this.lang];
+    return m[key] || this.i18n['zh'][key] || key;
+  },
+
+  esc(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  },
+
+  showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + (type || 'info');
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => t.className = 'toast', 3000);
+  },
+
+  toggleLang() {
+    this.lang = this.lang === 'zh' ? 'en' : 'zh';
+    document.getElementById('langLabel').textContent = this.lang === 'zh' ? 'EN' : '中';
+    this.applyI18n();
+    if (this.currentProject) {
+      this.renderDetail();
+    } else {
+      this.renderList();
+    }
+  },
+
+  applyI18n() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      el.textContent = this.t(key);
+    });
+    document.getElementById('langLabel').textContent = this.lang === 'zh' ? 'EN' : '中';
+  },
+
+  closeModal(name) {
+    document.getElementById(name).style.display = 'none';
+  },
+
+  api(method, path, body) {
+    let url = (this.config.apiBase || '') + path;
+    console.log('api: method=' + method + ' url=' + url + ' demoMode=' + this.config.demoMode);
+    if ((this.config.demoMode || this.clientMode) && path.startsWith('/api/')) { console.log('api: returning null (client/demo)'); return Promise.resolve(null); }
+    const opts = { method };
+    if (body) { opts.body = JSON.stringify(body); opts.headers = { 'Content-Type': 'application/json' }; }
+    return fetch(url, opts).then(r => { console.log('api: status=' + r.status); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).catch(e => { console.log('api: error=' + e.message); return null; });
+  },
+
+  showList() {
+    this.viewState = 'list';
+    document.getElementById('viewDetail').style.display = 'none';
+    document.getElementById('viewCalendar').style.display = 'none';
+    document.getElementById('viewList').style.display = 'block';
+    document.getElementById('exportBtn').style.display = 'none';
+    document.title = this.t('app.title');
+  },
+
+  // ─── Calendar View ──────────────────────────────
+  calDate: new Date(),
+  async showCalendar() {
+    this.viewState = 'calendar';
+    document.getElementById('viewList').style.display = 'none';
+    document.getElementById('viewDetail').style.display = 'none';
+    document.getElementById('viewCalendar').style.display = 'block';
+    document.getElementById('exportBtn').style.display = 'none';
+    // Load all milestones for calendar
+    if (!this.allMilestones) {
+      const allMs = [];
+      for (const p of this.projects) {
+        const data = await this.api('GET', `/api/project/${p.id}`);
+        if (data && data.milestones) allMs.push(...data.milestones.map(m => ({ ...m, linkedProject: p.id })));
+      }
+      this.allMilestones = allMs;
+    }
+    this.renderCalendar();
+  },
+  renderCalendar() {
+    const d = new Date(this.calDate);
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    document.getElementById('calTitle').textContent = `${year}年${month+1}月`;
+    const first = new Date(year, month, 1).getDay();
+    const days = new Date(year, month + 1, 0).getDate();
+    const prevDays = new Date(year, month, 0).getDate();
+    const today = new Date();
+    const grid = document.getElementById('calGrid');
+    const weekDays = this.lang === 'zh' ? ['日','一','二','三','四','五','六'] : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    // Build project-date map
+    const dateMap = {};
+    for (const p of this.projects) {
+      const pMs = this.allMilestones?.filter(m => m.linkedProject === p.id) || [];
+      for (const m of pMs) {
+        if (m.plannedStart) {
+          const s = new Date(m.plannedStart);
+          const e = m.plannedEnd ? new Date(m.plannedEnd) : new Date(s);
+          for (let cur = new Date(s); cur <= e; cur.setDate(cur.getDate() + 1)) {
+            const key = cur.toISOString().slice(0,10);
+            if (!dateMap[key]) dateMap[key] = [];
+            if (!dateMap[key].find(x => x.id === p.id)) dateMap[key].push({ id: p.id, name: p.name, status: p.status });
+          }
+        }
+      }
+    }
+    let html = weekDays.map(w => `<div class="cal-header">${w}</div>`).join('');
+    for (let i = 0; i < first; i++) {
+      html += `<div class="cal-day other-month"><div class="day-num">${prevDays - first + 1 + i}</div></div>`;
+    }
+    for (let day = 1; day <= days; day++) {
+      const key = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
+      const items = dateMap[key] || [];
+      html += `<div class="cal-day${isToday ? ' today' : ''}">
+        <div class="day-num">${day}</div>
+        ${items.slice(0,4).map(item => `<div class="cal-item status-${item.status}" onclick="app.openProject('${item.id}')" title="${item.name}">${this.esc(item.name)}</div>`).join('')}
+        ${items.length > 4 ? `<div style="font-size:9px;color:var(--text-secondary)">+${items.length-4}</div>` : ''}
+      </div>`;
+    }
+    const remaining = (7 - (first + days) % 7) % 7;
+    for (let i = 1; i <= remaining; i++) {
+      html += `<div class="cal-day other-month"><div class="day-num">${i}</div></div>`;
+    }
+    grid.innerHTML = html;
+  },
+  calPrevMonth() { this.calDate.setMonth(this.calDate.getMonth() - 1); this.renderCalendar(); },
+  calNextMonth() { this.calDate.setMonth(this.calDate.getMonth() + 1); this.renderCalendar(); },
+  calToday() { this.calDate = new Date(); this.renderCalendar(); },
+
+  renderList() {
+    const grid = document.getElementById('projectGrid');
+    const count = document.getElementById('projectCount');
+    const searchVal = (document.getElementById('projectSearch')?.value || '').toLowerCase();
+    const statusFilter = document.getElementById('projectStatusFilter')?.value || 'all';
+
+    let filtered = this.projects;
+    if (searchVal) filtered = filtered.filter(p => (p.name || '').toLowerCase().includes(searchVal) || (p.clientCN || '').includes(searchVal) || (p.clientEN || '').toLowerCase().includes(searchVal));
+    if (statusFilter !== 'all') filtered = filtered.filter(p => p.status === statusFilter);
+
+    if (!filtered.length) {
+      grid.innerHTML = `<div class="list-empty">${this.t('list.empty')}</div>`;
+      count.textContent = this.projects.length ? `(${filtered.length}/${this.projects.length})` : '';
+      return;
+    }
+
+    const newBtn = document.querySelector('#viewList .btn-primary');
+    if (newBtn) newBtn.style.display = this.clientMode ? 'none' : '';
+
+    count.textContent = `(${filtered.length}/${this.projects.length})`;
+    grid.innerHTML = filtered.map(p => {
+      const clientName = this.lang === 'zh' ? (p.clientCN || p.clientEN || '') : (p.clientEN || p.clientCN || '');
+      const statusLabel = { 'in-progress': this.t('status.inProgress'), 'completed': this.t('status.completed'), 'delayed': this.t('status.delayed'), 'pending': this.t('status.pending'), 'failed': this.t('status.failed') };
+      const dateRange = p.startDate || p.targetEndDate ? `${p.startDate || '?'} → ${p.targetEndDate || '?'}` : '';
+      const cardName = p.name || p.clientCN || p.clientEN || p.id || '?';
+      return `<div class="project-card" onclick="app.openProject('${p.id}')">
+        <div class="card-top">
+          <div>
+            <div class="card-title">${this.esc(cardName)}</div>
+            <div class="card-client">${this.esc(clientName)}</div>
+          </div>
+          <span class="badge badge-${p.status}"><span class="dot dot-${p.status}"></span>${statusLabel[p.status] || p.status}</span>
+        </div>
+        <div class="card-meta">
+          <span>${this.esc(p.shareToken || p.id || '')}</span>
+          ${dateRange ? `<span style="font-size:11px;color:var(--text-secondary)">${dateRange}</span>` : ''}
+          ${this.clientMode ? '' : `<span class="card-delete" onclick="event.stopPropagation();app.deleteProjectFromList('${p.id}')" title="${this.t('list.delete')}">×</span>`}
+        </div>
+        <div class="card-bar">
+          <div class="bar-track"><div class="bar-fill" style="width:${p.progress}%"></div></div>
+          <div class="bar-label"><span>${p.progress}%</span></div>
+        </div>
+      </div>`;
+    }).join('');
+  },
+
+  openProject(id) {
+    this.loadProject(id);
+  },
+
+  // ─── Init ──────────────────────────────────────────
+  init() {
+    console.log('EDTI init() called');
+    const url = new URL(window.location.href);
+    const projectId = url.searchParams.get('project');
+    const mode = url.searchParams.get('mode');
+    const lang = url.searchParams.get('lang');
+    const themeParam = url.searchParams.get('theme');
+    if (lang === 'en' || lang === 'zh') this.lang = lang;
+    this.clientMode = mode === 'client';
+    // Restore theme
+    const savedTheme = themeParam || (() => { try { return localStorage.getItem('edti_theme'); } catch { return null; } })() || 'default';
+    this.currentTheme = savedTheme;
+    const body = document.body;
+    if (savedTheme !== 'default') body.classList.add('theme-' + savedTheme);
+    document.getElementById('themeLabel').textContent = this.t('theme.' + savedTheme);
+    document.getElementById('themeIcon').textContent = this.themeIcons[savedTheme] || '🎨';
+    // Restore layout
+    const savedLayout = (() => { try { return localStorage.getItem('edti_layout'); } catch { return null; } })() || 'default';
+    this.currentLayout = savedLayout;
+    if (savedLayout !== 'default') body.classList.add('layout-' + savedLayout);
+    document.getElementById('layoutLabel').textContent = this.t('layout.' + savedLayout);
+    this.applyI18n();
+    if (projectId) {
+      this.loadProject(projectId);
+    } else {
+      this.loadProjects();
+    }
+    if (mode === 'client') {
+      document.getElementById('viewList').style.display = 'none';
+      document.getElementById('viewDetail').style.display = 'block';
+    }
+  },
+
+  async loadProjects() {
+    console.log('loadProjects: starting, demoMode=' + this.config.demoMode);
+    const data = await this.api('GET', '/api/projects');
+    console.log('loadProjects: api returned', data);
+    if (data && data.projects) {
+      this.projects = data.projects;
+      this.config.demoMode = false;
+    } else {
+      this.config.demoMode = true;
+      this.projects = [
+        { id: 'demo_001', name: 'PTC Heater E-mark Certification', clientCN: '广东正扬传感器科技', clientEN: 'Guangdong Zhengyang Sensor Tech', status: 'in-progress', progress: 42, shareToken: 'EDTI-2026-001', visible: true },
+        { id: 'demo_002', name: 'LED Headlamp CE Certification', clientCN: '浙江晶科电子', clientEN: 'Zhejiang Jinko Electronics', status: 'pending', progress: 0, shareToken: 'EDTI-2026-002', visible: false }
+      ];
+    }
+    try {
+      this.renderList();
+      document.getElementById('viewList').style.display = 'block';
+    } catch (e) {
+      console.error('renderList error:', e.message);
+    }
+    document.title = this.t('app.title');
+    const spinner = document.getElementById('loading');
+    if (spinner) spinner.style.display = 'none';
+  },
+
+  async loadProject(id) {
+    console.log('loadProject: id=' + id);
+    const data = await this.api('GET', `/api/project/${id}`);
+    console.log('loadProject: data=', data ? (data.project ? 'has project' : 'no project') : 'null');
+    if (data && data.project) {
+      this.currentProject = data.project;
+      this.milestones = data.milestones || [];
+      this.config.demoMode = false;
+    } else if (this.config.demoMode) {
+      const found = this.projects.find(p => p.id === id);
+      if (!found) {
+        this.currentProject = null;
+        this.milestones = [];
+        return;
+      }
+      this.currentProject = {
+        id: found.id,
+        projectName: found.name,
+        clientCN: found.clientCN,
+        clientEN: found.clientEN,
+        startDate: '2026-06-01',
+        targetEndDate: '2026-08-15',
+        progress: found.progress,
+        status: found.status,
+        shareToken: found.shareToken,
+        visible: found.visible
+      };
+    } else if (this.clientMode) {
+      this.currentProject = { id, projectName: this.lang === 'zh' ? '项目数据仅在内部网络可用' : 'Project data available on internal network only', progress: 0, status: 'pending' };
+      this.milestones = [];
+    }
+    if (this.config.demoMode && id === 'demo_001') {
+      const base = new Date('2026-06-01');
+      const add = (d, n) => { const r = new Date(d); r.setDate(r.getDate()+n); return r; };
+      const fmt = d => d.toISOString().slice(0,10);
+      this.milestones = [
+        { id:'ms1', phaseNum:1, nameCN:'项目启动', nameEN:'Project Kickoff', plannedStart:fmt(base), plannedEnd:fmt(add(base,5)), actualEnd:fmt(add(base,4)), progress:100, status:'completed', note:'' },
+        { id:'ms2', phaseNum:2, nameCN:'样品准备与寄送', nameEN:'Sample Prep & Shipping', plannedStart:fmt(add(base,5)), plannedEnd:fmt(add(base,12)), actualEnd:fmt(add(base,11)), progress:100, status:'completed', note:'' },
+        { id:'ms3', phaseNum:3, nameCN:'样品接收确认', nameEN:'Sample Receipt & Verification', plannedStart:fmt(add(base,12)), plannedEnd:fmt(add(base,15)), actualEnd:null, progress:100, status:'completed', note:'' },
+        { id:'ms4', phaseNum:4, nameCN:'测试执行', nameEN:'Testing Execution', plannedStart:fmt(add(base,15)), plannedEnd:fmt(add(base,45)), actualEnd:null, progress:45, status:'in-progress', note:'' },
+        { id:'ms5', phaseNum:5, nameCN:'测试报告草稿', nameEN:'Draft Test Report', plannedStart:fmt(add(base,45)), plannedEnd:fmt(add(base,52)), actualEnd:null, progress:0, status:'pending', note:'' },
+        { id:'ms6', phaseNum:6, nameCN:'技术审核', nameEN:'Technical Review', plannedStart:fmt(add(base,52)), plannedEnd:fmt(add(base,58)), actualEnd:null, progress:0, status:'pending', note:'' },
+        { id:'ms7', phaseNum:7, nameCN:'认证递交', nameEN:'Cert Submission', plannedStart:fmt(add(base,58)), plannedEnd:fmt(add(base,65)), actualEnd:null, progress:0, status:'pending', note:'' },
+        { id:'ms8', phaseNum:8, nameCN:'证书签发', nameEN:'Certificate Issuance', plannedStart:fmt(add(base,65)), plannedEnd:fmt(add(base,75)), actualEnd:null, progress:0, status:'pending', note:'' }
+      ];
+    }
+    this.renderDetail();
+  },
+
+  renderDetail() {
+    console.log('renderDetail: project=', this.currentProject ? this.currentProject.projectName : 'null', 'milestones=', this.milestones.length);
+    this.viewState = 'detail';
+    const p = this.currentProject;
+    const ms = this.milestones;
+
+    document.getElementById('viewList').style.display = 'none';
+    const isFocus = document.body.classList.contains('layout-focus');
+    document.getElementById('viewDetail').style.display = isFocus ? 'grid' : 'block';
+
+    if (this.clientMode) {
+      document.getElementById('exportBtn').style.display = 'none';
+      document.getElementById('editToggleBtn').style.display = 'none';
+      document.getElementById('deleteProjectBtn').style.display = 'none';
+      document.getElementById('addMsBtn').style.display = 'none';
+      document.getElementById('batchSection').style.display = 'none';
+      document.getElementById('tableActionsTh').style.display = 'none';
+    } else {
+      document.getElementById('exportBtn').style.display = 'inline-flex';
+      document.getElementById('editToggleBtn').style.display = 'inline-flex';
+      document.getElementById('deleteProjectBtn').style.display = 'inline-flex';
+      document.getElementById('addMsBtn').style.display = 'inline-flex';
+      document.getElementById('batchSection').style.display = 'block';
+    }
+
+    if (!p) {
+      document.getElementById('detailTitle').textContent = this.t('detail.back');
+      document.getElementById('pdName').textContent = this.t('list.empty');
+      return;
+    }
+
+    document.title = p.projectName + ' - EDTI';
+    document.getElementById('detailTitle').textContent = p.projectName;
+
+    // Project info
+    const clientName = this.lang === 'zh' ? (p.clientCN || p.clientEN || '') : (p.clientEN || p.clientCN || '');
+    document.getElementById('pdName').textContent = p.projectName;
+    document.getElementById('pdMeta').innerHTML = `
+      <span>${clientName}</span>
+      <span>${p.productModel || ''}</span>
+      <span>${p.standard || ''}</span>
+      <span>${p.certBody || ''}</span>
+      <span>${p.shareToken || p.id || ''}</span>
+    `;
+
+    // Badge
+    const badge = document.getElementById('pdBadge');
+    const statusLabelMap = {
+      'in-progress': this.t('status.inProgress'),
+      'completed': this.t('status.completed'),
+      'delayed': this.t('status.delayed'),
+      'pending': this.t('status.pending')
+    };
+    badge.className = `badge badge-${p.status}`;
+    badge.innerHTML = `<span class="dot dot-${p.status}"></span>${statusLabelMap[p.status] || p.status}`;
+
+    // Progress
+    const prog = p.progress || 0;
+    document.getElementById('pdProgressFill').style.width = prog + '%';
+    document.getElementById('pdProgressPct').textContent = prog + '%';
+    document.getElementById('pdDates').textContent = `${p.startDate || 'TBD'} → ${p.targetEndDate || 'TBD'}`;
+
+    // Edit toggle state
+    const editBtn = document.getElementById('editToggleBtn');
+    if (this.editMode) {
+      editBtn.style.background = 'var(--green)';
+      editBtn.style.color = '#fff';
+      editBtn.style.borderColor = 'var(--green)';
+      editBtn.textContent = '✕ ' + this.t('detail.editOff');
+      document.getElementById('tableActionsTh').style.display = '';
+    } else {
+      editBtn.style.background = 'var(--primary-light)';
+      editBtn.style.color = 'var(--primary)';
+      editBtn.style.borderColor = 'var(--primary)';
+      editBtn.textContent = '✎ ' + this.t('detail.editToggle');
+      document.getElementById('tableActionsTh').style.display = 'none';
+    }
+
+    // Render tabs
+    this.renderTimeline();
+    this.renderTable();
+  },
+
+  // ─── Timeline ────────────────────────────────────────
+  renderTimeline() {
+    const container = document.getElementById('timelineContainer');
+    container.innerHTML = '';
+    const ms = this.milestones;
+    if (!ms || !ms.length) {
+      container.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary)">${this.lang === 'zh' ? '暂无里程碑数据' : 'No milestone data'}</div>`;
+      return;
+    }
+    const sorted = [...ms].sort((a, b) => (a.phaseNum || 999) - (b.phaseNum || 999));
+    const sMap = {
+      'completed': { label: this.t('status.completed'), icon: '✅' },
+      'in-progress': { label: this.t('status.inProgress'), icon: '🔄' },
+      'delayed': { label: this.t('status.delayed'), icon: '⚠️' },
+      'pending': { label: this.t('status.pending'), icon: '⏳' },
+      'failed': { label: this.t('status.failed'), icon: '❌' }
+    };
+    let html = `<div class="tl-container">`;
+    sorted.forEach((m, i) => {
+      const s = sMap[m.status] || sMap.pending;
+      const name = this.lang === 'zh' ? (m.nameCN || m.nameEN || '') : (m.nameEN || m.nameCN || '');
+      const isLast = i === sorted.length - 1;
+      html += `<div class="tl-item ${isLast ? 'tl-last' : ''}">
+        <div class="tl-dot tl-dot-${m.status}"></div>
+        <div class="tl-line"></div>
+        <div class="tl-card tl-card-${m.status}">
+          <div class="tl-name">${s.icon} ${this.esc(name)}</div>
+          <div class="tl-meta">
+            <span>${m.plannedStart || '?'} → ${m.plannedEnd || '?'}</span>
+            <span class="tl-status tl-${m.status}">${s.label}</span>
+          </div>
+          ${m.note ? `<div class="tl-note">${this.esc(m.note)}</div>` : ''}
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+    container.innerHTML = html;
+  },
+
+  // ─── Table ───────────────────────────────────────────
+  renderTable() {
+    const tbody = document.getElementById('tableBody');
+    const ms = this.milestones;
+    if (!ms || !ms.length) {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--text-secondary);padding:30px">${this.lang === 'zh' ? '暂无里程碑数据，点击"添加"创建' : 'No milestones. Click "Add" to create one.'}</td></tr>`;
+      return;
+    }
+
+    const sorted = [...ms].sort((a, b) => (a.phaseNum || 999) - (b.phaseNum || 999));
+
+    if (this.editMode) {
+      tbody.innerHTML = sorted.map((m, i) => {
+        return `<tr draggable="true" ondragstart="app.dragStart(event, '${m.id}')" ondrop="app.dragDrop(event, '${m.id}')" ondragover="event.preventDefault()" data-msid="${m.id}">
+          <td><span class="phase-num draggable-handle">⠿ ${i+1}</span></td>
+          <td><input value="${this.esc(m.nameCN || '')}" id="me_nameCN_${m.id}" placeholder="CN" style="max-width:100px"></td>
+          <td><input value="${m.plannedStart || ''}" id="me_start_${m.id}" type="date"></td>
+          <td><input value="${m.plannedEnd || ''}" id="me_end_${m.id}" type="date"></td>
+          <td>
+            <select id="me_status_${m.id}">
+              <option value="pending" ${m.status==='pending'?'selected':''}>${this.t('status.pending')}</option>
+              <option value="in-progress" ${m.status==='in-progress'?'selected':''}>${this.t('status.inProgress')}</option>
+              <option value="completed" ${m.status==='completed'?'selected':''}>${this.t('status.completed')}</option>
+              <option value="delayed" ${m.status==='delayed'?'selected':''}>${this.t('status.delayed')}</option>
+              <option value="failed" ${m.status==='failed'?'selected':''}>${this.t('status.failed')}</option>
+            </select>
+          </td>
+          <td><input value="${this.esc(m.note || '')}" id="me_note_${m.id}" style="max-width:100px"></td>
+          <td style="white-space:nowrap">
+            <button class="btn btn-green btn-sm" onclick="app.saveMilestone('${m.id}')">${this.t('table.save')}</button>
+            <button class="btn btn-red btn-sm" onclick="app.deleteMilestone('${m.id}')">${this.t('table.delete')}</button>
+          </td>
+        </tr>`;
+      }).join('');
+    } else {
+      const sMap = {
+        'completed': { dot:'completed', label: this.t('status.completed') },
+        'in-progress': { dot:'in-progress', label: this.t('status.inProgress') },
+        'delayed': { dot:'delayed', label: this.t('status.delayed') },
+        'pending': { dot:'pending', label: this.t('status.pending') },
+        'failed': { dot:'failed', label: this.t('status.failed') }
+      };
+      tbody.innerHTML = sorted.map((m, i) => {
+        const s = sMap[m.status] || sMap.pending;
+        const name = this.lang === 'zh' ? (m.nameCN || m.nameEN || '') : (m.nameEN || m.nameCN || '');
+        return `<tr class="${this.filterStatus && this.filterStatus !== 'all' && m.status !== this.filterStatus ? 'ms-filtered' : ''}">
+          <td><span class="phase-num">${i+1}</span></td>
+          <td><strong>${this.esc(name)}</strong></td>
+          <td>${m.plannedStart || '—'}</td>
+          <td>${m.plannedEnd || '—'}</td>
+          <td><span class="dot dot-${s.dot}"></span>${s.label}</td>
+          <td style="font-size:12px;color:var(--text-secondary)">${this.esc(m.note || '')}</td>
+        </tr>`;
+      }).join('');
+    }
+  },
+
+  // ─── Switch Tab ─────────────────────────────────────
+  switchTab(tab) {
+    this.tab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.view-container').forEach(v => v.classList.add('view-hidden'));
+    if (tab === 'timeline') {
+      document.getElementById('tabTimeline').classList.remove('view-hidden');
+      document.querySelectorAll('.tab-btn')[1].classList.add('active');
+      this.renderTimeline();
+    } else {
+      document.getElementById('tabTable').classList.remove('view-hidden');
+      document.querySelectorAll('.tab-btn')[0].classList.add('active');
+    }
+  },
+
+  // ─── Edit Mode ──────────────────────────────────────
+  toggleEdit() {
+    this.editMode = !this.editMode;
+    this.renderDetail();
+    this.applyI18n();
+  },
+
+  // ─── Save Milestone ─────────────────────────────────
+  async saveMilestone(id) {
+    const data = {
+      nameCN: document.getElementById(`me_nameCN_${id}`)?.value || '',
+      plannedStart: document.getElementById(`me_start_${id}`)?.value || '',
+      plannedEnd: document.getElementById(`me_end_${id}`)?.value || '',
+      status: document.getElementById(`me_status_${id}`)?.value || 'pending',
+      note: document.getElementById(`me_note_${id}`)?.value || ''
+    };
+
+    if (this.config.demoMode) {
+      // Update local state
+      const idx = this.milestones.findIndex(m => m.id === id);
+      if (idx >= 0) {
+        this.milestones[idx] = { ...this.milestones[idx], ...data };
+      }
+      this.showToast(this.t('toast.updated'), 'success');
+      this.renderTable();
+      this.renderTimeline();
+      return;
+    }
+
+    const result = await this.api('PATCH', `/api/milestone/${id}`, data);
+    if (result && result.ok) {
+      this.showToast(this.t('toast.updated'), 'success');
+      await this.loadProject(this.currentProject.id);
+      this.renderDetail();
+    } else {
+      this.showToast(this.t('toast.error'), 'error');
+    }
+  },
+
+  // ─── Delete Milestone ───────────────────────────────
+  async deleteMilestone(id) {
+    if (!confirm(this.t('table.confirmDelete'))) return;
+
+    if (this.config.demoMode) {
+      this.milestones = this.milestones.filter(m => m.id !== id);
+      this.showToast(this.t('toast.msDeleted'), 'success');
+      this.renderTable();
+      this.renderTimeline();
+      return;
+    }
+
+    const result = await this.api('DELETE', `/api/milestone/${id}`);
+    if (result && result.ok) {
+      this.showToast(this.t('toast.msDeleted'), 'success');
+      await this.loadProject(this.currentProject.id);
+      this.renderDetail();
+    } else {
+      this.showToast(this.t('toast.error'), 'error');
+    }
+  },
+
+  // ─── Filter Milestones ──────────────────────────────
+  filterStatus: 'all',
+  filterMilestones() {
+    this.filterStatus = document.getElementById('msStatusFilter').value;
+    this.renderTable();
+  },
+
+  // ─── Drag & Drop Reorder ─────────────────────────────
+  dragStart(ev, id) {
+    ev.dataTransfer.setData('text/plain', id);
+    ev.dataTransfer.effectAllowed = 'move';
+  },
+  async dragDrop(ev, targetId) {
+    ev.preventDefault();
+    const srcId = ev.dataTransfer.getData('text/plain');
+    if (srcId === targetId) return;
+    const ms = this.milestones;
+    const srcIdx = ms.findIndex(m => m.id === srcId);
+    const dstIdx = ms.findIndex(m => m.id === targetId);
+    if (srcIdx < 0 || dstIdx < 0) return;
+    const [item] = ms.splice(srcIdx, 1);
+    ms.splice(dstIdx, 0, item);
+    ms.forEach((m, i) => { m.phaseNum = i + 1; });
+    this.renderTable();
+    this.renderTimeline();
+    // Save new order to server
+    for (const m of ms) {
+      await this.api('PATCH', `/api/milestone/${m.id}`, { phaseNum: m.phaseNum, plannedStart: m.plannedStart, plannedEnd: m.plannedEnd, status: m.status, progress: m.progress, nameCN: m.nameCN, nameEN: m.nameEN, note: m.note });
+    }
+    this.showToast(this.lang === 'zh' ? '顺序已保存' : 'Order saved', 'success');
+  },
+
+  // ─── Delete Project ──────────────────────────────────
+  async deleteProject() {
+    const pn = this.currentProject?.projectName || this.currentProject?.name || this.currentProject?.clientCN || this.currentProject?.id || '';
+    const msg = this.lang === 'zh' ? `确定要删除项目"${pn}"吗？所有里程碑数据将一并删除。` : `Delete project "${pn}"? All milestones will be deleted.`;
+    if (!confirm(msg)) return;
+    const id = this.currentProject?.id;
+    if (!id) { this.showToast('No project ID', 'error'); return; }
+
+    if (this.config.demoMode) {
+      this.projects = this.projects.filter(p => p.id !== id);
+      this.currentProject = null;
+      this.showToast(this.t('toast.deleted'), 'success');
+      this.showList();
+      this.renderList();
+      return;
+    }
+
+    const result = await this.api('DELETE', `/api/project/${id}`);
+    if (result && result.ok) {
+      this.showToast(this.t('toast.deleted'), 'success');
+    } else {
+      this.showToast(result === null ? this.t('toast.offline') : this.t('toast.error'), 'warning');
+    }
+    this.projects = this.projects.filter(p => p.id !== id);
+    this.currentProject = null;
+    this.showList();
+    this.renderList();
+  },
+
+  // ─── Delete Project From List ─────────────────────────
+  async deleteProjectFromList(id) {
+    if (!id) { this.showToast('Invalid project ID', 'error'); return; }
+    const p = this.projects.find(x => x.id === id);
+    if (!p) return;
+    const displayName = p.name || p.clientCN || p.clientEN || p.id || '?';
+    const msg = this.lang === 'zh' ? `确定要删除项目"${displayName}"吗？所有里程碑数据将一并删除。` : `Delete project "${displayName}"? All milestones will be deleted.`;
+    if (!confirm(msg)) return;
+
+    if (this.config.demoMode) {
+      this.projects = this.projects.filter(x => x.id !== id);
+      this.showToast(this.t('toast.deleted'), 'success');
+      this.renderList();
+      return;
+    }
+
+    const result = await this.api('DELETE', `/api/project/${id}`);
+    if (result && result.ok) {
+      this.showToast(this.t('toast.deleted'), 'success');
+    } else {
+      this.showToast(result === null ? this.t('toast.offline') : this.t('toast.error'), 'warning');
+    }
+    this.projects = this.projects.filter(x => x.id !== id);
+    if (this.currentProject?.id === id) { this.currentProject = null; this.showList(); }
+    this.renderList();
+  },
+
+  // ─── New Project Modal ──────────────────────────────
+  showNewProjectModal() {
+    document.getElementById('newProjectModal').style.display = 'block';
+    // Set defaults
+    const today = new Date().toISOString().slice(0,10);
+    document.getElementById('npStart').value = today;
+    const end = new Date(); end.setDate(end.getDate() + 75);
+    document.getElementById('npEnd').value = end.toISOString().slice(0,10);
+  },
+
+  closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+  },
+
+  async createProject() {
+    const data = {
+      projectName: document.getElementById('npName').value,
+      clientCN: document.getElementById('npClientCN').value,
+      clientEN: document.getElementById('npClientEN').value,
+      productModel: document.getElementById('npModel').value,
+      standard: document.getElementById('npStandard').value,
+      certBody: document.getElementById('npCertBody').value,
+      shareToken: document.getElementById('npToken').value,
+      startDate: document.getElementById('npStart').value,
+      targetEndDate: document.getElementById('npEnd').value,
+      status: 'pending'
+    };
+
+    if (this.config.demoMode) {
+      const newId = 'demo_' + Date.now();
+      this.projects.push({
+        id: newId, name: data.projectName, clientCN: data.clientCN, clientEN: data.clientEN,
+        status: 'pending', progress: 0, shareToken: data.shareToken, visible: true
+      });
+      this.closeModal('newProjectModal');
+      this.showToast(this.t('toast.created'), 'success');
+      this.renderList();
+      return;
+    }
+
+    const result = await this.api('POST', '/api/project', data);
+    if (result && result.ok) {
+      this.closeModal('newProjectModal');
+      this.showToast(this.t('toast.created'), 'success');
+      await this.loadProjects();
+      this.renderList();
+    } else {
+      this.showToast(this.t('toast.error'), 'error');
+    }
+  },
+
+  // ─── Batch Milestone Quick Add ─────────────────────
+  TEMPLATES: {
+    emark: [
+      { nameCN:'项目启动', nameEN:'Project Kick-off' },
+      { nameCN:'资料收集与审核', nameEN:'Document Collection & Review' },
+      { nameCN:'样品准备与测试', nameEN:'Sample Preparation & Testing' },
+      { nameCN:'报告编制', nameEN:'Test Report Preparation' },
+      { nameCN:'技术审核', nameEN:'Technical Review' },
+      { nameCN:'认证递交', nameEN:'Certification Submission' },
+      { nameCN:'证书签发', nameEN:'Certificate Issuance' }
+    ],
+    emc: [
+      { nameCN:'传导发射电压法', nameEN:'CE Voltage Method', dur:1 },
+      { nameCN:'传导发射电流法', nameEN:'CE Current Method', dur:1 },
+      { nameCN:'辐射发射', nameEN:'RE', dur:1 },
+      { nameCN:'辐射抗扰度', nameEN:'RS', dur:1 },
+      { nameCN:'大电流注入', nameEN:'BCI', dur:1 },
+      { nameCN:'静电测试', nameEN:'ESD', dur:1 },
+      { nameCN:'沿电源线瞬态传导抗扰', nameEN:'Transient Immunity along Supply Lines', dur:1 }
+    ],
+    ce: [
+      { nameCN:'技术文件准备', nameEN:'Technical File Preparation' },
+      { nameCN:'风险评估', nameEN:'Risk Assessment' },
+      { nameCN:'测试执行', nameEN:'Testing Execution' },
+      { nameCN:'符合性声明', nameEN:'Declaration of Conformity' },
+      { nameCN:'CE 标记签发', nameEN:'CE Marking Issuance' }
+    ]
+  },
+
+  toggleBatch() {
+    const body = document.getElementById('batchBody');
+    const arrow = document.getElementById('batchArrow');
+    const collapsed = body.style.display === 'none';
+    body.style.display = collapsed ? 'block' : 'none';
+    arrow.textContent = collapsed ? '▼' : '▶';
+  },
+
+  applyTemplate(type) {
+    const tpl = this.TEMPLATES[type];
+    if (!tpl) return;
+    const now = new Date();
+    let cur = new Date(now);
+    const lines = tpl.map((t, i) => {
+      const gap = t.gap || 14;
+      const dur = t.dur || 12;
+      const s = new Date(cur);
+      const e = new Date(s); e.setDate(e.getDate() + dur - 1);
+      cur.setDate(cur.getDate() + gap);
+      return `${t.nameCN} | ${t.nameEN} | ${s.toISOString().slice(0,10)} | ${e.toISOString().slice(0,10)}`;
+    });
+    document.getElementById('batchTextarea').value = lines.join('\n');
+    this.showToast(this.t('toast.templateReady'), 'success');
+  },
+
+  async batchImport() {
+    const text = document.getElementById('batchTextarea').value.trim();
+    if (!text) { this.showToast('请粘贴里程碑数据', 'error'); return; }
+    const lines = text.split('\n').filter(l => l.trim());
+    const milestones = [];
+    for (const line of lines) {
+      const parts = line.split('|').map(s => s.trim());
+      if (parts.length < 2) continue;
+      const ms = { nameCN: parts[0], nameEN: parts[1] || '' };
+      if (parts[2]) ms.plannedStart = parts[2];
+      if (parts[3]) ms.plannedEnd = parts[3];
+      milestones.push(ms);
+    }
+    if (!milestones.length) { this.showToast('未解析到有效里程碑', 'error'); return; }
+
+    if (this.config.demoMode) {
+      let num = Math.max(0, ...this.milestones.map(m => m.phaseNum || 0)) + 1;
+      milestones.forEach((ms, i) => {
+        this.milestones.push({
+          id: 'ms_' + Date.now() + '_' + i, phaseNum: num + i,
+          ...ms, actualEnd: null, note: '', progress: 0, status: 'pending'
+        });
+      });
+      this.renderTable(); this.renderTimeline();
+      this.showToast(`✓ ${milestones.length} ${this.t('toast.batchAdded')}`, 'success');
+      return;
+    }
+
+    const data = {
+      projectId: this.currentProject.id,
+      milestones: milestones.map(ms => ({ ...ms, progress: 0, status: 'pending' }))
+    };
+    console.log('batchImport: sending', data);
+    const result = await this.api('POST', '/api/milestones/batch', data);
+    console.log('batchImport: result=', result);
+    if (result && result.created > 0) {
+      this.showToast(`✓ ${result.created} ${this.t('toast.batchAdded')}`);
+      await this.loadProject(this.currentProject.id);
+      this.renderDetail();
+    } else {
+      this.showToast(result?.error || this.t('toast.batchError'), 'error');
+    }
+  },
+
+  // ─── New Milestone Modal ────────────────────────────
+  showNewMilestoneModal() {
+    document.getElementById('newMilestoneModal').style.display = 'block';
+    const today = new Date().toISOString().slice(0,10);
+    document.getElementById('nmStart').value = today;
+    const end = new Date(); end.setDate(end.getDate() + 14);
+    document.getElementById('nmEnd').value = end.toISOString().slice(0,10);
+  },
+
+  async createMilestone() {
+    const data = {
+      nameCN: document.getElementById('nmNameCN').value,
+      nameEN: document.getElementById('nmNameEN').value,
+      plannedStart: document.getElementById('nmStart').value,
+      plannedEnd: document.getElementById('nmEnd').value,
+      status: document.getElementById('nmStatus').value,
+      progress: parseInt(document.getElementById('nmProgress').value) || 0
+    };
+
+    if (this.config.demoMode) {
+      const newId = 'ms_' + Date.now();
+      const nextNum = Math.max(0, ...this.milestones.map(m => m.phaseNum || 0)) + 1;
+      this.milestones.push({
+        id: newId, phaseNum: nextNum, ...data, actualEnd: null, note: ''
+      });
+      this.closeModal('newMilestoneModal');
+      this.showToast(this.t('toast.msAdded'), 'success');
+      this.renderTable();
+      this.renderTimeline();
+      return;
+    }
+
+    const payload = { ...data, projectId: this.currentProject?.id };
+    const result = await this.api('POST', '/api/milestone', payload);
+    console.log('createMilestone: result=', result);
+    if (result && result.ok) {
+      this.closeModal('newMilestoneModal');
+      this.showToast(this.t('toast.msAdded'), 'success');
+      await this.loadProject(this.currentProject.id);
+      this.renderDetail();
+    } else {
+      const errMsg = result?.error || this.t('toast.error');
+      this.showToast(errMsg, 'error');
+      console.error('createMilestone failed:', result);
+    }
+  },
+
+  // ─── Share ───────────────────────────────────────────
+  // ─── Beautiful Excel Export ───────────────────────────
+  async exportBeautifulExcel() {
+    const p = this.currentProject;
+    const ms = this.milestones;
+    if (!p) return;
+    const L = this.lang;
+    const isCN = L === 'zh';
+
+    try {
+      const ExcelJS = window.ExcelJS;
+      if (!ExcelJS) { this.showToast('ExcelJS 库加载中，请稍后重试', 'error'); return; }
+
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'EDTI · ' + (isCN ? '广州依顿检测技术服务有限公司' : 'Guangzhou Eadon Testing Technology Services Co., Ltd.');
+      wb.created = new Date();
+
+      const ws = wb.addWorksheet(isCN ? '项目排期表' : 'Project Schedule');
+
+      // ── Color palette (theme-aware) ──
+      const tp = this.getThemeExcelPalette();
+      const C = {
+        primary:    tp.primary, primaryDark: tp.headerBg, primaryLight: tp.primaryLight,
+        green:      tp.green, greenBg:     tp.greenBg,
+        red:        tp.red, redBg:       tp.redBg,
+        yellow:     tp.yellow, yellowBg:    tp.yellowBg,
+        gray:       tp.gray, grayBg:      tp.grayBg,
+        white:      tp.white,
+        border:     tp.border, borderDark:  tp.border,
+        text:       tp.text, textSecondary: tp.textSecondary,
+        headerBg:   tp.grayBg,
+      };
+
+      // ── Column widths ──
+      ws.getColumn(1).width = 5;
+      ws.getColumn(2).width = 34;
+      ws.getColumn(3).width = 15;
+      ws.getColumn(4).width = 15;
+      ws.getColumn(5).width = 15;
+      ws.getColumn(6).width = 10;
+      ws.getColumn(7).width = 14;
+      ws.getColumn(8).width = 24;
+
+      const border = { style: 'thin', color: { argb: C.border } };
+      const borderThin = (c) => ({ top: border, left: border, bottom: border, right: border });
+
+      // ═══ ROW 1: Company Brand Header ═══
+      const r1 = ws.getRow(1); r1.height = 44;
+      ws.mergeCells(1, 1, 1, 8);
+      const c1 = r1.getCell(1);
+      c1.value = isCN ? 'EDTI  广州依顿检测技术服务有限公司' : 'EDTI  Guangzhou Eadon Testing Technology Services Co., Ltd.';
+      c1.font = { name: 'Arial', size: 18, bold: true, color: { argb: C.white } };
+      c1.alignment = { vertical: 'middle', horizontal: 'left' };
+      c1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.primaryDark } };
+
+      // ═══ ROW 2: Subtitle ═══
+      const r2 = ws.getRow(2); r2.height = 22;
+      ws.mergeCells(2, 1, 2, 8);
+      const c2 = r2.getCell(1);
+      c2.value = isCN ? '项目排期管理  |  Project Schedule Management' : 'Project Schedule Management  |  项目排期管理';
+      c2.font = { name: 'Arial', size: 10, color: { argb: C.textSecondary }, italic: true };
+      c2.alignment = { vertical: 'middle', horizontal: 'left' };
+      c2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F4FF' } };
+
+      // ═══ ROW 4: Project Title ═══
+      const r4 = ws.getRow(4); r4.height = 36;
+      ws.mergeCells(4, 1, 4, 8);
+      const c4 = r4.getCell(1);
+      c4.value = p.projectName || '';
+      c4.font = { name: 'Arial', size: 16, bold: true, color: { argb: C.primaryDark } };
+      c4.alignment = { vertical: 'middle', horizontal: 'center' };
+
+      // ═══ ROW 6-7: Project Info ═══
+      const clientName = isCN ? (p.clientCN || p.clientEN || '') : (p.clientEN || p.clientCN || '');
+      const infoLabels = isCN
+        ? ['客户名称', '产品型号', '项目编号', '认证标准', '认证机构', '项目周期']
+        : ['Client', 'Product', 'Project ID', 'Standard', 'Cert Body', 'Timeline'];
+      const infoVals = [
+        clientName, p.productModel || '—',
+        p.shareToken || p.id || '—', p.standard || '—',
+        p.certBody || '—', (p.startDate || 'TBD') + ' → ' + (p.targetEndDate || 'TBD')
+      ];
+
+      for (let i = 0; i < 2; i++) {
+        const rowNum = 6 + i;
+        const row = ws.getRow(rowNum); row.height = 24;
+        for (let j = 0; j < 4; j++) {
+          const idx = i * 4 + j;
+          if (idx >= infoLabels.length) break;
+          const cellCol = j * 2 + 1;
+          const labelCell = row.getCell(cellCol);
+          labelCell.value = infoLabels[idx];
+          labelCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: C.textSecondary } };
+          labelCell.alignment = { vertical: 'middle', horizontal: 'right' };
+          labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.grayBg } };
+          labelCell.border = borderThin();
+          const valCell = row.getCell(cellCol + 1);
+          valCell.value = infoVals[idx];
+          valCell.font = { name: 'Arial', size: 11, bold: true, color: { argb: C.text } };
+          valCell.alignment = { vertical: 'middle', horizontal: 'left' };
+          valCell.border = borderThin();
+        }
+      }
+
+      // ═══ ROW 9: Progress Bar ═══
+      const r9 = ws.getRow(9); r9.height = 28;
+      ws.mergeCells(9, 1, 9, 3);
+      const progLabel = r9.getCell(1);
+      progLabel.value = isCN ? '整体进度' : 'Overall Progress';
+      progLabel.font = { name: 'Arial', size: 11, bold: true, color: { argb: C.text } };
+      progLabel.alignment = { vertical: 'middle', horizontal: 'right' };
+
+      const prog = p.progress || 0;
+      ws.mergeCells(9, 4, 9, 7);
+      const progCell = r9.getCell(4);
+      const progStr = '█'.repeat(Math.floor(prog / 10)) + '░'.repeat(10 - Math.floor(prog / 10));
+      progCell.value = progStr + '  ' + prog + '%';
+      progCell.font = {
+        name: 'Arial', size: 14, bold: true,
+        color: { argb: prog === 100 ? C.green : prog > 50 ? C.primary : prog > 0 ? C.yellow : C.gray }
+      };
+      progCell.alignment = { vertical: 'middle', horizontal: 'left' };
+
+      ws.mergeCells(9, 8, 9, 8);
+      const pctCell = r9.getCell(8);
+      pctCell.value = prog + '%';
+      pctCell.font = { name: 'Arial', size: 18, bold: true, color: { argb: C.primary } };
+      pctCell.alignment = { vertical: 'middle', horizontal: 'center' };
+      pctCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.primaryLight } };
+      pctCell.border = borderThin();
+
+      // ═══ ROW 11: Table Header ═══
+      const headerRowNum = 11;
+      const headers = isCN
+        ? ['#', '测试阶段', '计划开始', '计划完成', '实际完成', '完成率', '状态', '备注']
+        : ['#', 'Phase', 'Planned Start', 'Planned End', 'Actual End', 'Progress', 'Status', 'Note'];
+      const hr = ws.getRow(headerRowNum); hr.height = 30;
+      headers.forEach((h, i) => {
+        const cell = hr.getCell(i + 1);
+        cell.value = h;
+        cell.font = { name: 'Arial', size: 11, bold: true, color: { argb: C.white } };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.primary } };
+        cell.border = { top: { style: 'thin', color: { argb: C.primaryDark } }, left: border, bottom: { style: 'thin', color: { argb: C.primaryDark } }, right: border };
+      });
+
+      // ═══ Data Rows ═══
+      const sorted = [...(ms || [])].sort((a, b) => (a.phaseNum || 999) - (b.phaseNum || 999));
+      const sLabel = {
+        'completed':   isCN ? '已完成' : 'Completed',
+        'in-progress': isCN ? '进行中' : 'In Progress',
+        'delayed':     isCN ? '已延期' : 'Delayed',
+        'pending':     isCN ? '待启动' : 'Pending'
+      };
+      const sColor = {
+        'completed':   C.green,
+        'in-progress': C.primary,
+        'delayed':     C.red,
+        'pending':     C.gray
+      };
+      const sBgColor = {
+        'completed':   C.greenBg,
+        'in-progress': C.primaryLight,
+        'delayed':     C.redBg,
+        'pending':     'FFF9FAFB'
+      };
+
+      const startRow = headerRowNum + 1;
+      sorted.forEach((m, i) => {
+        const row = ws.getRow(startRow + i);
+        row.height = 26;
+        const bgColor = i % 2 === 0 ? C.white : C.grayBg;
+
+        const cells = [
+          { v: i + 1,                      align: 'center', font: { bold: true, size: 10, color: { argb: C.textSecondary } } },
+          { v: isCN ? (m.nameCN || m.nameEN || '') : (m.nameEN || m.nameCN || ''), align: 'left', font: { size: 11, bold: true, color: { argb: C.text } } },
+          { v: m.plannedStart || '—',       align: 'center', font: { size: 10, color: { argb: C.text } } },
+          { v: m.plannedEnd || '—',         align: 'center', font: { size: 10, color: { argb: C.text } } },
+          { v: m.actualEnd || '—',          align: 'center', font: { size: 10, color: { argb: m.actualEnd ? C.text : C.gray } } },
+          { v: (m.progress || 0) + '%',     align: 'center', font: { size: 10, bold: true, color: { argb: m.progress === 100 ? C.green : m.progress > 0 ? C.primary : C.gray } } },
+          { v: sLabel[m.status] || '',      align: 'center', font: { size: 10, bold: true, color: { argb: C.white } } },
+          { v: m.note || '',                align: 'left',   font: { size: 10, color: { argb: C.textSecondary } } },
+        ];
+
+        cells.forEach((c, j) => {
+          const cell = row.getCell(j + 1);
+          cell.value = c.v;
+          cell.font = c.font;
+          cell.alignment = { vertical: 'middle', horizontal: c.align };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+          cell.border = borderThin();
+
+          // Status cell gets colored background
+          if (j === 6 && m.status) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sColor[m.status] } };
+          }
+        });
+      });
+
+      // ═══ Summary Row ═══
+      const summaryRowNum = startRow + sorted.length;
+      if (sorted.length > 0) {
+        const sr = ws.getRow(summaryRowNum); sr.height = 26;
+        ws.mergeCells(summaryRowNum, 1, summaryRowNum, 2);
+        const labelCell = sr.getCell(1);
+        labelCell.value = isCN ? `共 ${sorted.length} 个阶段` : `${sorted.length} phases total`;
+        labelCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: C.textSecondary } };
+        labelCell.alignment = { vertical: 'middle', horizontal: 'right' };
+        labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.grayBg } };
+        labelCell.border = borderThin();
+        for (let j = 2; j <= 8; j++) {
+          const cell = sr.getCell(j);
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.grayBg } };
+          cell.border = borderThin();
+        }
+        // Total progress
+        const avgProg = Math.round(sorted.reduce((s, m) => s + (m.progress || 0), 0) / sorted.length);
+        ws.mergeCells(summaryRowNum, 6, summaryRowNum, 7);
+        const avgCell = sr.getCell(6);
+        avgCell.value = isCN ? `平均进度: ${avgProg}%` : `Avg Progress: ${avgProg}%`;
+        avgCell.font = { name: 'Arial', size: 10, bold: true, color: { argb: C.primary } };
+        avgCell.alignment = { vertical: 'middle', horizontal: 'center' };
+      }
+
+      // ═══ Footer ═══
+      const footerRow = summaryRowNum + (sorted.length > 0 ? 2 : 3);
+      const fr = ws.getRow(footerRow); fr.height = 20;
+      ws.mergeCells(footerRow, 1, footerRow, 4);
+      const fCell = fr.getCell(1);
+      fCell.value = (isCN ? '导出时间: ' : 'Export Time: ') + new Date().toLocaleString();
+      fCell.font = { name: 'Arial', size: 9, color: { argb: C.gray }, italic: true };
+      fCell.alignment = { vertical: 'middle', horizontal: 'left' };
+
+      ws.mergeCells(footerRow, 5, footerRow, 8);
+      const fCell2 = fr.getCell(5);
+      fCell2.value = isCN ? '生成机构: EDTI · 广州依顿检测技术服务有限公司' : 'Generated By: EDTI · Guangzhou Eadon Testing Technology Services Co., Ltd.';
+      fCell2.font = { name: 'Arial', size: 9, color: { argb: C.gray }, italic: true };
+      fCell2.alignment = { vertical: 'middle', horizontal: 'right' };
+
+      // ═══ Print Setup ═══
+      ws.pageSetup.orientation = 'landscape';
+      ws.pageSetup.fitToPage = true;
+      ws.pageSetup.fitToWidth = 1;
+      ws.pageSetup.paperSize = 9; // A4
+
+      // ═══ Save ═══
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = (p.projectName || 'EDTI_Project').replace(/[\/\\?%*:|"<>]/g, '_') + (isCN ? '_排期表.xlsx' : '_Schedule.xlsx');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      this.showToast(isCN ? '✅ 精美 Excel 导出成功' : '✅ Beautiful Excel exported', 'success');
+    } catch (e) {
+      console.error('exportBeautifulExcel error:', e);
+      this.showToast(isCN ? '导出失败: ' + e.message : 'Export failed: ' + e.message, 'error');
+    }
+  },
+
+  // ─── Simple Excel Export (original) ──────────────────
+  async exportSimpleExcel() {
+    const p = this.currentProject;
+    const ms = this.milestones;
+    if (!p) return;
+
+    const lang = this.lang;
+    const title = p.projectName;
+
+    const rows = [
+      [title],
+      [lang === 'zh' ? '客户' : 'Client', this.lang === 'zh' ? (p.clientCN || p.clientEN || '') : (p.clientEN || p.clientCN || '')],
+      [lang === 'zh' ? '项目编号' : 'Project ID', p.shareToken || p.id || ''],
+      [lang === 'zh' ? '整体进度' : 'Progress', p.progress + '%'],
+      [lang === 'zh' ? '周期' : 'Timeline', (p.startDate || '') + ' → ' + (p.targetEndDate || '')],
+      []
+    ];
+
+    const header = [
+      '#', lang === 'zh' ? '阶段' : 'Phase',
+      lang === 'zh' ? '计划开始' : 'Planned Start',
+      lang === 'zh' ? '计划完成' : 'Planned End',
+      lang === 'zh' ? '实际完成' : 'Actual End',
+      lang === 'zh' ? '完成率' : 'Progress',
+      lang === 'zh' ? '状态' : 'Status',
+      lang === 'zh' ? '备注' : 'Note'
+    ];
+    rows.push(header);
+
+    const sl = { 'completed': lang === 'zh' ? '已完成' : 'Completed', 'in-progress': lang === 'zh' ? '进行中' : 'In Progress', 'delayed': lang === 'zh' ? '已延期' : 'Delayed', 'pending': lang === 'zh' ? '待启动' : 'Pending' };
+
+    const sorted = [...(ms || [])].sort((a, b) => (a.phaseNum || 999) - (b.phaseNum || 999));
+    sorted.forEach((m, i) => {
+      rows.push([
+        i + 1,
+        lang === 'zh' ? (m.nameCN || m.nameEN || '') : (m.nameEN || m.nameCN || ''),
+        m.plannedStart || '—',
+        m.plannedEnd || '—',
+        m.actualEnd || '—',
+        (m.progress || 0) + '%',
+        sl[m.status] || m.status,
+        m.note || ''
+      ]);
+    });
+
+    rows.push([]);
+    rows.push([lang === 'zh' ? '导出时间' : 'Export Time', new Date().toLocaleString()]);
+    rows.push([lang === 'zh' ? '生成机构' : 'Generated By', 'EDTI · Guangzhou Eadon Testing Technology Services Co., Ltd.']);
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [
+      { wch:5 }, { wch:32 }, { wch:14 }, { wch:14 }, { wch:14 },
+      { wch:10 }, { wch:12 }, { wch:22 }
+    ];
+    ws['!merges'] = [{ s: { r:0, c:0 }, e: { r:0, c:7 } }];
+    if (ws['!ref']) {
+      const ref = XLSX.utils.decode_range(ws['!ref']);
+      for (let c = ref.s.c; c <= ref.e.c; c++) {
+        const addr = XLSX.utils.encode_cell({ r:0, c });
+        if (!ws[addr]) ws[addr] = { v: '', t: 's' };
+        ws[addr].s = { font: { bold: true, sz: 16 }, alignment: { horizontal: 'center' } };
+      }
+    }
+    XLSX.utils.book_append_sheet(wb, ws, lang === 'zh' ? '排期表' : 'Schedule');
+    const fileName = title.replace(/[\/\\?%*:|"<>]/g, '_') + '.xlsx';
+    XLSX.writeFile(wb, fileName);
+    this.showToast(lang === 'zh' ? 'Excel 导出成功' : 'Excel exported', 'success');
+  },
+
+  // ─── Feishu Doc Export ───────────────────────────────
+  async exportFeishuDoc() {
+    const p = this.currentProject;
+    if (!p) return;
+    this.showToast(this.lang === 'zh' ? '📋 正在生成飞书文档...' : '📋 Generating Feishu doc...', 'info');
+    try {
+      const result = await this.api('POST', '/api/export/feishu', {
+        projectId: p.id,
+        theme: this.currentTheme || 'default',
+        lang: this.lang
+      });
+      if (result && result.url) {
+        this.showToast(this.lang === 'zh' ? '✅ 飞书文档已生成' : '✅ Feishu doc created', 'success');
+        window.open(result.url, '_blank');
+      } else if (result && result.token) {
+        this.showToast(this.lang === 'zh' ? '✅ 飞书文档已生成' : '✅ Feishu doc created', 'success');
+      } else {
+        this.showToast(result?.error || (this.lang === 'zh' ? '飞书导出失败，请检查后端服务' : 'Feishu export failed'), 'error');
+      }
+    } catch (e) {
+      this.showToast(this.lang === 'zh' ? '导出失败: ' + e.message : 'Export failed: ' + e.message, 'error');
+    }
+  },
+
+  // ─── Theme System ─────────────────────────────────────
+  currentTheme: 'default',
+  themeIcons: { default: '💼', tech: '🚀', fashion: '✨', fresh: '🌸' },
+
+  toggleThemeMenu(ev) {
+    ev.stopPropagation();
+    const menu = document.getElementById('themeMenu');
+    const visible = menu.style.display === 'block';
+    menu.style.display = visible ? 'none' : 'block';
+    if (!visible) {
+      const close = () => { menu.style.display = 'none'; document.removeEventListener('click', close); };
+      setTimeout(() => document.addEventListener('click', close), 10);
+    }
+  },
+
+  setTheme(name) {
+    const body = document.body;
+    body.className = body.className.replace(/theme-\w+/g, '').trim();
+    if (name !== 'default') body.classList.add('theme-' + name);
+    this.currentTheme = name;
+    document.getElementById('themeLabel').textContent = this.t('theme.' + name);
+    document.getElementById('themeIcon').textContent = this.themeIcons[name] || '🎨';
+    document.getElementById('themeMenu').style.display = 'none';
+    try { localStorage.setItem('edti_theme', name); } catch {}
+    if (this.currentProject && this.viewState === 'detail') {
+      this.renderTimeline();
+      this.renderTable();
+    }
+  },
+
+  toggleLayoutMenu(ev) {
+    ev.stopPropagation();
+    const menu = document.getElementById('layoutMenu');
+    const visible = menu.style.display === 'block';
+    menu.style.display = visible ? 'none' : 'block';
+    if (!visible) {
+      const close = () => { menu.style.display = 'none'; document.removeEventListener('click', close); };
+      setTimeout(() => document.addEventListener('click', close), 10);
+    }
+  },
+
+  setLayout(name) {
+    const body = document.body;
+    body.className = body.className.replace(/layout-\w+/g, '').trim();
+    if (name !== 'default') body.classList.add('layout-' + name);
+    this.currentLayout = name;
+    document.getElementById('layoutLabel').textContent = this.t('layout.' + name);
+    document.getElementById('layoutMenu').style.display = 'none';
+    try { localStorage.setItem('edti_layout', name); } catch {}
+    // Reset inline style so CSS can take over
+    document.getElementById('viewDetail').style.display = '';
+    if (this.currentProject && this.viewState === 'detail') this.renderDetail();
+  },
+
+  getThemeExcelPalette() {
+    const palettes = {
+      default: {
+        headerBg: 'FF0F3B8C', primary: 'FF1A56DB', primaryLight: 'FFE8EFFD',
+        green: 'FF0D9488', greenBg: 'FFEDFDFA', red: 'FFDC2626', redBg: 'FFFEF2F2',
+        yellow: 'FFD97706', yellowBg: 'FFFFF9ED', gray: 'FF6B7280', grayBg: 'FFF9FAFB',
+        white: 'FFFFFFFF', border: 'FFE5E7EB', text: 'FF111827', textSecondary: 'FF6B7280'
+      },
+      tech: {
+        headerBg: 'FF050812', primary: 'FF00D4FF', primaryLight: 'FF0A1628',
+        green: 'FF00E676', greenBg: 'FF0A1F14', red: 'FFFF1744', redBg: 'FF1F0A0E',
+        yellow: 'FFFFD740', yellowBg: 'FF1F1A0A', gray: 'FF8892B0', grayBg: 'FF0A0E1A',
+        white: 'FF1A1A3E', border: 'FF1A2A4E', text: 'FFE0E8FF', textSecondary: 'FF8892B0'
+      },
+      fashion: {
+        headerBg: 'FF1A1A1A', primary: 'FF1A1A1A', primaryLight: 'FFF5F0EB',
+        green: 'FF2D6A4F', greenBg: 'FFEDF5F0', red: 'FFC41E3A', redBg: 'FFFEF0F2',
+        yellow: 'FFB8860B', yellowBg: 'FFFDF8ED', gray: 'FF888888', grayBg: 'FFF8F6F4',
+        white: 'FFFFFFFF', border: 'FFE0D8D0', text: 'FF1A1A1A', textSecondary: 'FF888888'
+      },
+      fresh: {
+        headerBg: 'FF5A7A6E', primary: 'FF7C9A8E', primaryLight: 'FFE8F0ED',
+        green: 'FF6BA89A', greenBg: 'FFEDF8F5', red: 'FFD4878A', redBg: 'FFFEF0F1',
+        yellow: 'FFD4A96A', yellowBg: 'FFFDF8ED', gray: 'FF8A9E97', grayBg: 'FFF5F8F7',
+        white: 'FFFFFFFF', border: 'FFDCE8E3', text: 'FF2D3E3A', textSecondary: 'FF8A9E97'
+      }
+    };
+    return palettes[this.currentTheme] || palettes.default;
+  },
+
+  // ─── Export Menu ──────────────────────────────────────
+  toggleExportMenu(ev) {
+    ev.stopPropagation();
+    const menu = document.getElementById('exportMenu');
+    const isVisible = menu.style.display === 'block';
+    menu.style.display = isVisible ? 'none' : 'block';
+    if (!isVisible) {
+      const close = (e) => { menu.style.display = 'none'; document.removeEventListener('click', close); };
+      setTimeout(() => document.addEventListener('click', close), 10);
+    }
+  },
+
+  // ─── Refresh ─────────────────────────────────────────
+  async refresh() {
+    if (this.viewState === 'list') {
+      await this.loadProjects();
+      this.renderList();
+    } else if (this.currentProject) {
+      await this.loadProject(this.currentProject.id);
+      this.renderDetail();
+    }
+    this.applyI18n();
+  },
+
+  // ─── Toast ───────────────────────────────────────────
+  showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast ' + type + ' show';
+    setTimeout(() => t.classList.remove('show'), 3000);
+  },
+
+  // ─── Utilities ───────────────────────────────────────
+  esc(s) {
+    if (!s) return '';
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+};
+
+// ─── Start ──────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => app.init());
+</script>
+</body>
+</html>
